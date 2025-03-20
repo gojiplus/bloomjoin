@@ -4,6 +4,5 @@
 .Rbuildignore
 .Rhistory
 /build
-/var
 vignettes/.build.timestamp
-/Meta/
+var/
