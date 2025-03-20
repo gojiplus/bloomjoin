@@ -1,8 +1,9 @@
 .Rproj.user
-inst/doc
 .DS_Store
 /.eggs
 .Rbuildignore
 .Rhistory
 /build
 /var
+vignettes/.build.timestamp
+/Meta/

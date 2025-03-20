@@ -15,27 +15,23 @@
 #' @keywords internal
 "_PACKAGE"
 
-#' Perform a join between two data frames using Bloom filter optimization
+#' Join two data frames using a hash-based filtering approach similar to Bloom filters
 #'
-#' @param x The larger data frame
-#' @param y The smaller data frame
-#' @param by Character vector of variables to join by
-#' @param type The type of join: "inner", "left", "right", or "full"
-#' @param bloom_size Bloom filter size, defaults to size of y
-#' @param false_positive_rate Acceptable rate of false positives (between 0 and 1)
-#' @param verbose Whether to print information about the filtering process
+#' @param x A data frame
+#' @param y A data frame
+#' @param by A character vector of variables to join by
+#' @param type Type of join: "inner", "left", "right", "full", "semi", or "anti"
+#' @param bloom_size Size of the Bloom filter. Defaults to the number of rows in y
+#' @param false_positive_rate False positive rate for the Bloom filter
+#' @param verbose Whether to print progress messages
 #'
-#' @return A data frame
+#' @return A joined data frame with a class of "bloomjoin" and additional attributes
 #' @export
 #'
 #' @examples
-#' # Create test data
-#' large_df <- data.frame(id = 1:1000, value = runif(1000))
-#' small_df <- data.frame(id = sample(1:2000, 100), info = letters[1:100])
-#'
-#' # Perform bloom filter join
-#' result <- bloom_join(large_df, small_df, by = "id")
-# Load just this function directly
+#' x <- data.frame(id = 1:100, value_x = rnorm(100))
+#' y <- data.frame(id = 50:150, value_y = rnorm(101))
+#' result <- bloom_join(x, y, by = "id")
 bloom_join <- function(x, y, by = NULL, type = "inner",
                        bloom_size = NULL, false_positive_rate = 0.01,
                        verbose = TRUE) {
@@ -54,12 +50,41 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
       message("Joining by: ", paste(by, collapse = ", "))
     }
   } else if (is.character(by)) {
-    # Check if all join columns exist in both data frames
-    if (!all(by %in% names(x))) {
-      stop("Not all join columns found in x")
-    }
-    if (!all(by %in% names(y))) {
-      stop("Not all join columns found in y")
+    # FIX: Handle named vectors correctly
+    if (!is.null(names(by)) && any(names(by) != "")) {
+      # Named vector case (different column names)
+      x_cols <- names(by)
+      y_cols <- unname(by)
+
+      # Check if join columns exist in respective data frames
+      if (!all(x_cols %in% names(x))) {
+        stop("Not all join columns found in x")
+      }
+      if (!all(y_cols %in% names(y))) {
+        stop("Not all join columns found in y")
+      }
+
+      # Create temporary columns for joining
+      for (i in seq_along(by)) {
+        x_col <- x_cols[i]
+        y_col <- y_cols[i]
+        x[[paste0(".temp_join_", i)]] <- x[[x_col]]
+        y[[paste0(".temp_join_", i)]] <- y[[y_col]]
+      }
+
+      # Set join columns to temporary ones
+      temp_join_cols <- paste0(".temp_join_", seq_along(by))
+      orig_by <- by  # Save original for final join
+      by <- temp_join_cols
+    } else {
+      # Unnamed vector case (same column names)
+      # Check if all join columns exist in both data frames
+      if (!all(by %in% names(x))) {
+        stop("Not all join columns found in x")
+      }
+      if (!all(by %in% names(y))) {
+        stop("Not all join columns found in y")
+      }
     }
   } else {
     stop("'by' must be NULL or a character vector")
@@ -91,7 +116,18 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
       }
 
       # Use standard join but with improved performance
-      return(perform_standard_join(x, y, by, type))
+      # FIX: Use the original by if we had named vectors
+      result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
+
+      # Remove temporary columns if we created them
+      if (exists("temp_join_cols")) {
+        for (col in temp_join_cols) {
+          x[[col]] <- NULL
+          y[[col]] <- NULL
+        }
+      }
+
+      return(result)
     }
   }
 
@@ -104,8 +140,7 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
             " and false positive rate: ", false_positive_rate)
   }
 
-  # MODIFIED: Create a simple set-based filter instead of using bloom package
-  # This avoids the namespace issues completely
+  # Create a simple set-based filter instead of using bloom package
   keys_in_y <- if (length(by) > 1) {
     as.character(y$.composite_key)
   } else {
@@ -160,7 +195,17 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   }
 
   # Perform the final join
-  result <- perform_standard_join(x_filtered, y, by, type)
+  # FIX: Use the original by if we had named vectors
+  result <- perform_standard_join(x_filtered, y, if (exists("orig_by")) orig_by else by, type)
+
+  # Remove temporary columns if we created them
+  if (exists("temp_join_cols")) {
+    for (col in temp_join_cols) {
+      if (col %in% names(x_filtered)) x_filtered[[col]] <- NULL
+      if (col %in% names(y)) y[[col]] <- NULL
+      if (col %in% names(result)) result[[col]] <- NULL
+    }
+  }
 
   join_time <- Sys.time() - start_join_time
   total_time <- Sys.time() - start_time
@@ -185,4 +230,39 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   )
 
   return(result)
+}
+
+#' Perform standard join operations
+#'
+#' Internal function to perform standard join operations using dplyr
+#'
+#' @param x A data frame
+#' @param y A data frame
+#' @param by A character vector of variables to join by
+#' @param type Type of join: "inner", "left", "right", "full", "semi", or "anti"
+#'
+#' @return A joined data frame
+#' @keywords internal
+perform_standard_join <- function(x, y, by = NULL, type = "inner") {
+  # Check if dplyr is available
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("The dplyr package is required for join operations")
+  }
+
+  # Perform the join based on the specified type
+  if (type == "inner") {
+    return(dplyr::inner_join(x, y, by = by))
+  } else if (type == "left") {
+    return(dplyr::left_join(x, y, by = by))
+  } else if (type == "right") {
+    return(dplyr::right_join(x, y, by = by))
+  } else if (type == "full") {
+    return(dplyr::full_join(x, y, by = by))
+  } else if (type == "semi") {
+    return(dplyr::semi_join(x, y, by = by))
+  } else if (type == "anti") {
+    return(dplyr::anti_join(x, y, by = by))
+  } else {
+    stop("Unsupported join type")
+  }
 }
