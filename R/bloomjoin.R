@@ -4,7 +4,6 @@
 #' This package provides optimized join operations for large data frames using
 #' Bloom filters to reduce memory usage and improve performance.
 #'
-#' @import bloom
 #' @importFrom dplyr inner_join left_join right_join full_join semi_join anti_join
 #' @importFrom stats time
 #' @importFrom utils head tail
