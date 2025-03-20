@@ -1,0 +1,21 @@
+Package: bloomjoin
+Title: Efficient Data Frame Joins Using Bloom Filters
+Version: 0.1.1
+Authors@R: person("Gaurav Sood", email = "gsood07@gmail.com", role = c("aut", "cre"))
+Description: This package provides optimized join operations for large data frames using
+    Bloom filters to reduce memory usage and improve performance. It is particularly
+    effective when joining a large data frame with a smaller one, and when many keys
+    in the larger data frame don't have matches.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    bloom,
+    dplyr
+Suggests:
+    ggplot2,
+    microbenchmark,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
