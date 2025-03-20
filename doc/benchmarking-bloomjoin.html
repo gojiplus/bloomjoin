@@ -1672,12 +1672,12 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <span id="cb1-1326"><a href="#cb1-1326" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Bloom join was faster in&quot;</span>, <span class="fu">sum</span>(speedup_summary<span class="sc">$</span>is_faster), </span>
 <span id="cb1-1327"><a href="#cb1-1327" tabindex="-1"></a>    <span class="st">&quot;out of&quot;</span>, <span class="fu">nrow</span>(speedup_summary), <span class="st">&quot;test cases</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb1-1328"><a href="#cb1-1328" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-1329"><a href="#cb1-1329" tabindex="-1"></a><span class="co">#&gt; Bloom join was faster in 3 out of 60 test cases</span></span>
+<span id="cb1-1329"><a href="#cb1-1329" tabindex="-1"></a><span class="co">#&gt; Bloom join was faster in 1 out of 60 test cases</span></span>
 <span id="cb1-1330"><a href="#cb1-1330" tabindex="-1"></a></span>
 <span id="cb1-1331"><a href="#cb1-1331" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Average speedup when bloom_join is faster:&quot;</span>, </span>
 <span id="cb1-1332"><a href="#cb1-1332" tabindex="-1"></a>    <span class="fu">mean</span>(speedup_summary<span class="sc">$</span>speedup[speedup_summary<span class="sc">$</span>is_faster]), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb1-1333"><a href="#cb1-1333" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-1334"><a href="#cb1-1334" tabindex="-1"></a><span class="co">#&gt; Average speedup when bloom_join is faster: 1.031084</span></span>
+<span id="cb1-1334"><a href="#cb1-1334" tabindex="-1"></a><span class="co">#&gt; Average speedup when bloom_join is faster: 2.544652</span></span>
 <span id="cb1-1335"><a href="#cb1-1335" tabindex="-1"></a></span>
 <span id="cb1-1336"><a href="#cb1-1336" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Conditions where bloom_join tends to be faster:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb1-1337"><a href="#cb1-1337" tabindex="-1"></a><span class="co">#&gt; </span></span>
@@ -1697,30 +1697,467 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <span id="cb1-1351"><a href="#cb1-1351" tabindex="-1"></a>)</span>
 <span id="cb1-1352"><a href="#cb1-1352" tabindex="-1"></a><span class="co">#&gt; `summarise()` has grouped output by &#39;join_type&#39;. You can override using the</span></span>
 <span id="cb1-1353"><a href="#cb1-1353" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span>
-<span id="cb1-1354"><a href="#cb1-1354" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 8</span></span>
+<span id="cb1-1354"><a href="#cb1-1354" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 8</span></span>
 <span id="cb1-1355"><a href="#cb1-1355" tabindex="-1"></a><span class="co">#&gt; # Groups:   join_type [1]</span></span>
 <span id="cb1-1356"><a href="#cb1-1356" tabindex="-1"></a><span class="co">#&gt;   join_type key_cols avg_speedup count avg_x_rows avg_y_rows avg_size_ratio</span></span>
 <span id="cb1-1357"><a href="#cb1-1357" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;        &lt;dbl&gt;       &lt;dbl&gt; &lt;int&gt;      &lt;dbl&gt;      &lt;dbl&gt;          &lt;dbl&gt;</span></span>
-<span id="cb1-1358"><a href="#cb1-1358" tabindex="-1"></a><span class="co">#&gt; 1 left             1        1.02     2     100000       5500             55</span></span>
-<span id="cb1-1359"><a href="#cb1-1359" tabindex="-1"></a><span class="co">#&gt; 2 left             3        1.06     1     100000      10000             10</span></span>
-<span id="cb1-1360"><a href="#cb1-1360" tabindex="-1"></a><span class="co">#&gt; # ℹ 1 more variable: avg_overlap &lt;dbl&gt;</span></span>
-<span id="cb1-1361"><a href="#cb1-1361" tabindex="-1"></a></span>
-<span id="cb1-1362"><a href="#cb1-1362" tabindex="-1"></a><span class="co"># Advanced analysis: fit a model to predict when bloom_join is faster</span></span>
-<span id="cb1-1363"><a href="#cb1-1363" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">glm</span>(is_faster <span class="sc">~</span> <span class="fu">log</span>(n_x) <span class="sc">+</span> <span class="fu">log</span>(n_y) <span class="sc">+</span> overlap <span class="sc">+</span> key_cols <span class="sc">+</span> join_type,</span>
-<span id="cb1-1364"><a href="#cb1-1364" tabindex="-1"></a>             <span class="at">data =</span> speedup_summary, <span class="at">family =</span> <span class="fu">binomial</span>())</span>
+<span id="cb1-1358"><a href="#cb1-1358" tabindex="-1"></a><span class="co">#&gt; 1 left             1        2.54     1     100000       1000            100</span></span>
+<span id="cb1-1359"><a href="#cb1-1359" tabindex="-1"></a><span class="co">#&gt; # ℹ 1 more variable: avg_overlap &lt;dbl&gt;</span></span>
+<span id="cb1-1360"><a href="#cb1-1360" tabindex="-1"></a></span>
+<span id="cb1-1361"><a href="#cb1-1361" tabindex="-1"></a><span class="co"># Advanced analysis: fit a model to predict when bloom_join is faster</span></span>
+<span id="cb1-1362"><a href="#cb1-1362" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">glm</span>(is_faster <span class="sc">~</span> <span class="fu">log</span>(n_x) <span class="sc">+</span> <span class="fu">log</span>(n_y) <span class="sc">+</span> overlap <span class="sc">+</span> key_cols <span class="sc">+</span> join_type,</span>
+<span id="cb1-1363"><a href="#cb1-1363" tabindex="-1"></a>             <span class="at">data =</span> speedup_summary, <span class="at">family =</span> <span class="fu">binomial</span>())</span>
+<span id="cb1-1364"><a href="#cb1-1364" tabindex="-1"></a><span class="co">#&gt; Warning: glm.fit: algorithm did not converge</span></span>
 <span id="cb1-1365"><a href="#cb1-1365" tabindex="-1"></a><span class="co">#&gt; Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred</span></span>
 <span id="cb1-1366"><a href="#cb1-1366" tabindex="-1"></a></span>
 <span id="cb1-1367"><a href="#cb1-1367" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Factors predicting when bloom_join is faster:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb1-1368"><a href="#cb1-1368" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb1-1369"><a href="#cb1-1369" tabindex="-1"></a><span class="co">#&gt; Factors predicting when bloom_join is faster:</span></span>
 <span id="cb1-1370"><a href="#cb1-1370" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">summary</span>(model)<span class="sc">$</span>coefficients)</span>
-<span id="cb1-1371"><a href="#cb1-1371" tabindex="-1"></a><span class="co">#&gt;                   Estimate   Std. Error      z value  Pr(&gt;|z|)</span></span>
-<span id="cb1-1372"><a href="#cb1-1372" tabindex="-1"></a><span class="co">#&gt; (Intercept)   -122.4977380 2.841465e+04 -0.004311076 0.9965603</span></span>
-<span id="cb1-1373"><a href="#cb1-1373" tabindex="-1"></a><span class="co">#&gt; log(n_x)         8.6153495 2.384885e+03  0.003612479 0.9971177</span></span>
-<span id="cb1-1374"><a href="#cb1-1374" tabindex="-1"></a><span class="co">#&gt; log(n_y)         0.4428894 6.434155e-01  0.688341135 0.4912380</span></span>
-<span id="cb1-1375"><a href="#cb1-1375" tabindex="-1"></a><span class="co">#&gt; overlap         -1.9102899 2.315119e+00 -0.825136685 0.4092940</span></span>
-<span id="cb1-1376"><a href="#cb1-1376" tabindex="-1"></a><span class="co">#&gt; key_cols        -0.5098952 7.407595e-01 -0.688341135 0.4912380</span></span>
-<span id="cb1-1377"><a href="#cb1-1377" tabindex="-1"></a><span class="co">#&gt; join_typeleft   20.4109876 7.314727e+03  0.002790396 0.9977736</span></span></code></pre></div>
+<span id="cb1-1371"><a href="#cb1-1371" tabindex="-1"></a><span class="co">#&gt;                 Estimate Std. Error       z value  Pr(&gt;|z|)</span></span>
+<span id="cb1-1372"><a href="#cb1-1372" tabindex="-1"></a><span class="co">#&gt; (Intercept)    -73.63601  180045.14 -0.0004089864 0.9996737</span></span>
+<span id="cb1-1373"><a href="#cb1-1373" tabindex="-1"></a><span class="co">#&gt; log(n_x)        18.34025   14851.86  0.0012348786 0.9990147</span></span>
+<span id="cb1-1374"><a href="#cb1-1374" tabindex="-1"></a><span class="co">#&gt; log(n_y)       -18.48595   16751.33 -0.0011035509 0.9991195</span></span>
+<span id="cb1-1375"><a href="#cb1-1375" tabindex="-1"></a><span class="co">#&gt; overlap       -104.91854   78465.87 -0.0013371233 0.9989331</span></span>
+<span id="cb1-1376"><a href="#cb1-1376" tabindex="-1"></a><span class="co">#&gt; key_cols       -21.40621   21216.55 -0.0010089395 0.9991950</span></span>
+<span id="cb1-1377"><a href="#cb1-1377" tabindex="-1"></a><span class="co">#&gt; join_typeleft   42.81242   42433.09  0.0010089395 0.9991950</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Benchmark comparing Rcpp bloom join with original and dplyr</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># Generate test data with controllable overlap</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>generate_test_data <span class="ot">&lt;-</span> <span class="cf">function</span>(n_x, n_y, <span class="at">overlap_pct =</span> <span class="fl">0.5</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="co"># Calculate the number of overlapping keys</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  n_overlap <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fu">min</span>(n_x, n_y) <span class="sc">*</span> overlap_pct)</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  </span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  <span class="co"># Generate keys for both data frames</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  keys_x <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>(n_x <span class="sc">*</span> <span class="dv">10</span>), n_x)</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  keys_y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">sample</span>(keys_x, n_overlap), </span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>              <span class="fu">sample</span>(<span class="fu">setdiff</span>(<span class="dv">1</span><span class="sc">:</span>(n_y <span class="sc">*</span> <span class="dv">10</span>), keys_x), n_y <span class="sc">-</span> n_overlap))</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  </span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  <span class="co"># Create data frames</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>    <span class="at">key =</span> keys_x,</span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>    <span class="at">value_x =</span> <span class="fu">rnorm</span>(n_x)</span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  )</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  </span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>  y <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>    <span class="at">key =</span> keys_y,</span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>    <span class="at">value_y =</span> <span class="fu">rnorm</span>(n_y)</span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>  )</span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>  </span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">x =</span> x, <span class="at">y =</span> y))</span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>}</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a><span class="co"># Function to run a benchmark comparison</span></span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>run_rcpp_benchmark <span class="ot">&lt;-</span> <span class="cf">function</span>(n_x, n_y, <span class="at">overlap_pct =</span> <span class="fl">0.5</span>, <span class="at">times =</span> <span class="dv">3</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>) {</span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>  <span class="co"># Generate test data</span></span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  <span class="cf">if</span> (verbose) {</span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Generating test data with x: %d rows, y: %d rows, overlap: %.1f%%</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>                n_x, n_y, overlap_pct <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>  }</span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a>  data <span class="ot">&lt;-</span> <span class="fu">generate_test_data</span>(n_x, n_y, overlap_pct)</span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a>  </span>
+<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a>  <span class="co"># Prepare results data frame</span></span>
+<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a>    <span class="at">n_x =</span> <span class="fu">integer</span>(),</span>
+<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a>    <span class="at">n_y =</span> <span class="fu">integer</span>(),</span>
+<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a>    <span class="at">overlap =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a>    <span class="at">method =</span> <span class="fu">character</span>(),</span>
+<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a>    <span class="at">time =</span> <span class="fu">numeric</span>(),</span>
+<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="fu">numeric</span>()</span>
+<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a>  )</span>
+<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a>  </span>
+<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>  <span class="co"># Run dplyr join</span></span>
+<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>  <span class="cf">if</span> (verbose) <span class="fu">cat</span>(<span class="st">&quot;Running standard dplyr join...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>  dplyr_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a>    dplyr_result <span class="ot">&lt;-</span> <span class="fu">inner_join</span>(data<span class="sc">$</span>x, data<span class="sc">$</span>y, <span class="at">by =</span> <span class="st">&quot;key&quot;</span>)</span>
+<span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a>  )[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a>  </span>
+<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, <span class="fu">data.frame</span>(</span>
+<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a>    <span class="at">n_x =</span> n_x,</span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a>    <span class="at">n_y =</span> n_y,</span>
+<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a>    <span class="at">overlap =</span> overlap_pct,</span>
+<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;dplyr_join&quot;</span>,</span>
+<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>    <span class="at">time =</span> dplyr_time,</span>
+<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a>    <span class="at">reduction =</span> <span class="cn">NA</span></span>
+<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a>  ))</span>
+<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a>  </span>
+<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a>  <span class="co"># Run original bloom_join</span></span>
+<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a>  <span class="cf">if</span> (verbose) <span class="fu">cat</span>(<span class="st">&quot;Running original bloom_join...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a>  orig_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a>    orig_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(data<span class="sc">$</span>x, data<span class="sc">$</span>y, <span class="at">by =</span> <span class="st">&quot;key&quot;</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a>  )[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb2-71"><a href="#cb2-71" tabindex="-1"></a>  </span>
+<span id="cb2-72"><a href="#cb2-72" tabindex="-1"></a>  <span class="co"># Get reduction percentage</span></span>
+<span id="cb2-73"><a href="#cb2-73" tabindex="-1"></a>  orig_stats <span class="ot">&lt;-</span> <span class="fu">attr</span>(orig_result, <span class="st">&quot;bloom_filter_stats&quot;</span>)</span>
+<span id="cb2-74"><a href="#cb2-74" tabindex="-1"></a>  </span>
+<span id="cb2-75"><a href="#cb2-75" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, <span class="fu">data.frame</span>(</span>
+<span id="cb2-76"><a href="#cb2-76" tabindex="-1"></a>    <span class="at">n_x =</span> n_x,</span>
+<span id="cb2-77"><a href="#cb2-77" tabindex="-1"></a>    <span class="at">n_y =</span> n_y,</span>
+<span id="cb2-78"><a href="#cb2-78" tabindex="-1"></a>    <span class="at">overlap =</span> overlap_pct,</span>
+<span id="cb2-79"><a href="#cb2-79" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;bloom_join_original&quot;</span>,</span>
+<span id="cb2-80"><a href="#cb2-80" tabindex="-1"></a>    <span class="at">time =</span> orig_time,</span>
+<span id="cb2-81"><a href="#cb2-81" tabindex="-1"></a>    <span class="at">reduction =</span> orig_stats<span class="sc">$</span>reduction_percent</span>
+<span id="cb2-82"><a href="#cb2-82" tabindex="-1"></a>  ))</span>
+<span id="cb2-83"><a href="#cb2-83" tabindex="-1"></a>  </span>
+<span id="cb2-84"><a href="#cb2-84" tabindex="-1"></a>  <span class="co"># Run Rcpp bloom_join</span></span>
+<span id="cb2-85"><a href="#cb2-85" tabindex="-1"></a>  <span class="cf">if</span> (verbose) <span class="fu">cat</span>(<span class="st">&quot;Running Rcpp-accelerated bloom_join...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-86"><a href="#cb2-86" tabindex="-1"></a>  rcpp_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb2-87"><a href="#cb2-87" tabindex="-1"></a>    rcpp_result <span class="ot">&lt;-</span> <span class="fu">bloom_join_rcpp</span>(data<span class="sc">$</span>x, data<span class="sc">$</span>y, <span class="at">by =</span> <span class="st">&quot;key&quot;</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-88"><a href="#cb2-88" tabindex="-1"></a>  )[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb2-89"><a href="#cb2-89" tabindex="-1"></a>  </span>
+<span id="cb2-90"><a href="#cb2-90" tabindex="-1"></a>  <span class="co"># Get reduction percentage</span></span>
+<span id="cb2-91"><a href="#cb2-91" tabindex="-1"></a>  rcpp_stats <span class="ot">&lt;-</span> <span class="fu">attr</span>(rcpp_result, <span class="st">&quot;bloom_filter_stats&quot;</span>)</span>
+<span id="cb2-92"><a href="#cb2-92" tabindex="-1"></a>  </span>
+<span id="cb2-93"><a href="#cb2-93" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, <span class="fu">data.frame</span>(</span>
+<span id="cb2-94"><a href="#cb2-94" tabindex="-1"></a>    <span class="at">n_x =</span> n_x,</span>
+<span id="cb2-95"><a href="#cb2-95" tabindex="-1"></a>    <span class="at">n_y =</span> n_y,</span>
+<span id="cb2-96"><a href="#cb2-96" tabindex="-1"></a>    <span class="at">overlap =</span> overlap_pct,</span>
+<span id="cb2-97"><a href="#cb2-97" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;bloom_join_rcpp&quot;</span>,</span>
+<span id="cb2-98"><a href="#cb2-98" tabindex="-1"></a>    <span class="at">time =</span> rcpp_time,</span>
+<span id="cb2-99"><a href="#cb2-99" tabindex="-1"></a>    <span class="at">reduction =</span> rcpp_stats<span class="sc">$</span>reduction_percent</span>
+<span id="cb2-100"><a href="#cb2-100" tabindex="-1"></a>  ))</span>
+<span id="cb2-101"><a href="#cb2-101" tabindex="-1"></a>  </span>
+<span id="cb2-102"><a href="#cb2-102" tabindex="-1"></a>  <span class="co"># Verify results match</span></span>
+<span id="cb2-103"><a href="#cb2-103" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">identical</span>(<span class="fu">nrow</span>(orig_result), <span class="fu">nrow</span>(rcpp_result))) {</span>
+<span id="cb2-104"><a href="#cb2-104" tabindex="-1"></a>    <span class="fu">warning</span>(<span class="st">&quot;Result row counts differ between original and Rcpp versions!&quot;</span>)</span>
+<span id="cb2-105"><a href="#cb2-105" tabindex="-1"></a>  }</span>
+<span id="cb2-106"><a href="#cb2-106" tabindex="-1"></a>  </span>
+<span id="cb2-107"><a href="#cb2-107" tabindex="-1"></a>  <span class="cf">if</span> (verbose) {</span>
+<span id="cb2-108"><a href="#cb2-108" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  dplyr: %.3f s, original: %.3f s, Rcpp: %.3f s</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-109"><a href="#cb2-109" tabindex="-1"></a>                dplyr_time, orig_time, rcpp_time))</span>
+<span id="cb2-110"><a href="#cb2-110" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Speedup over original: %.2fx</span><span class="sc">\n</span><span class="st">&quot;</span>, orig_time <span class="sc">/</span> rcpp_time))</span>
+<span id="cb2-111"><a href="#cb2-111" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Speedup over dplyr: %.2fx</span><span class="sc">\n</span><span class="st">&quot;</span>, dplyr_time <span class="sc">/</span> rcpp_time))</span>
+<span id="cb2-112"><a href="#cb2-112" tabindex="-1"></a>  }</span>
+<span id="cb2-113"><a href="#cb2-113" tabindex="-1"></a>  </span>
+<span id="cb2-114"><a href="#cb2-114" tabindex="-1"></a>  <span class="fu">return</span>(results)</span>
+<span id="cb2-115"><a href="#cb2-115" tabindex="-1"></a>}</span>
+<span id="cb2-116"><a href="#cb2-116" tabindex="-1"></a></span>
+<span id="cb2-117"><a href="#cb2-117" tabindex="-1"></a><span class="co"># Run benchmarks with different data sizes</span></span>
+<span id="cb2-118"><a href="#cb2-118" tabindex="-1"></a>run_rcpp_scaling_benchmark <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb2-119"><a href="#cb2-119" tabindex="-1"></a>  <span class="co"># Test different data sizes</span></span>
+<span id="cb2-120"><a href="#cb2-120" tabindex="-1"></a>  data_sizes <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb2-121"><a href="#cb2-121" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">10000</span>, <span class="dv">1000</span>),     <span class="co"># 10K x 1K</span></span>
+<span id="cb2-122"><a href="#cb2-122" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">100000</span>, <span class="dv">1000</span>),    <span class="co"># 100K x 1K</span></span>
+<span id="cb2-123"><a href="#cb2-123" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">1000000</span>, <span class="dv">1000</span>),   <span class="co"># 1M x 1K</span></span>
+<span id="cb2-124"><a href="#cb2-124" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">10000000</span>, <span class="dv">1000</span>),  <span class="co"># 10M x 1K (very large)</span></span>
+<span id="cb2-125"><a href="#cb2-125" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">100000</span>, <span class="dv">100000</span>),  <span class="co"># 100K x 100K</span></span>
+<span id="cb2-126"><a href="#cb2-126" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">1000000</span>, <span class="dv">100000</span>)  <span class="co"># 1M x 100K (large both sides)</span></span>
+<span id="cb2-127"><a href="#cb2-127" tabindex="-1"></a>  )</span>
+<span id="cb2-128"><a href="#cb2-128" tabindex="-1"></a>  </span>
+<span id="cb2-129"><a href="#cb2-129" tabindex="-1"></a>  <span class="co"># Test different overlaps</span></span>
+<span id="cb2-130"><a href="#cb2-130" tabindex="-1"></a>  overlaps <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">0.9</span>)</span>
+<span id="cb2-131"><a href="#cb2-131" tabindex="-1"></a>  </span>
+<span id="cb2-132"><a href="#cb2-132" tabindex="-1"></a>  <span class="co"># Run benchmarks</span></span>
+<span id="cb2-133"><a href="#cb2-133" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>()</span>
+<span id="cb2-134"><a href="#cb2-134" tabindex="-1"></a>  </span>
+<span id="cb2-135"><a href="#cb2-135" tabindex="-1"></a>  <span class="cf">for</span> (size <span class="cf">in</span> data_sizes) {</span>
+<span id="cb2-136"><a href="#cb2-136" tabindex="-1"></a>    n_x <span class="ot">&lt;-</span> size[<span class="dv">1</span>]</span>
+<span id="cb2-137"><a href="#cb2-137" tabindex="-1"></a>    n_y <span class="ot">&lt;-</span> size[<span class="dv">2</span>]</span>
+<span id="cb2-138"><a href="#cb2-138" tabindex="-1"></a>    </span>
+<span id="cb2-139"><a href="#cb2-139" tabindex="-1"></a>    <span class="co"># Skip the largest datasets for CRAN tests or limited systems</span></span>
+<span id="cb2-140"><a href="#cb2-140" tabindex="-1"></a>    <span class="cf">if</span> (n_x <span class="sc">&gt;=</span> <span class="dv">10000000</span> <span class="sc">&amp;&amp;</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;NOT_CRAN&quot;</span>) <span class="sc">!=</span> <span class="st">&quot;true&quot;</span>) {</span>
+<span id="cb2-141"><a href="#cb2-141" tabindex="-1"></a>      <span class="cf">next</span></span>
+<span id="cb2-142"><a href="#cb2-142" tabindex="-1"></a>    }</span>
+<span id="cb2-143"><a href="#cb2-143" tabindex="-1"></a>    </span>
+<span id="cb2-144"><a href="#cb2-144" tabindex="-1"></a>    <span class="co"># Run with different overlaps</span></span>
+<span id="cb2-145"><a href="#cb2-145" tabindex="-1"></a>    <span class="cf">for</span> (overlap <span class="cf">in</span> overlaps) {</span>
+<span id="cb2-146"><a href="#cb2-146" tabindex="-1"></a>      <span class="co"># Skip some combinations for very large datasets</span></span>
+<span id="cb2-147"><a href="#cb2-147" tabindex="-1"></a>      <span class="cf">if</span> (n_x <span class="sc">&gt;=</span> <span class="dv">1000000</span> <span class="sc">&amp;&amp;</span> n_y <span class="sc">&gt;=</span> <span class="dv">100000</span> <span class="sc">&amp;&amp;</span> overlap <span class="sc">&gt;</span> <span class="fl">0.5</span>) {</span>
+<span id="cb2-148"><a href="#cb2-148" tabindex="-1"></a>        <span class="cf">next</span>  <span class="co"># These can be very memory intensive</span></span>
+<span id="cb2-149"><a href="#cb2-149" tabindex="-1"></a>      }</span>
+<span id="cb2-150"><a href="#cb2-150" tabindex="-1"></a>      </span>
+<span id="cb2-151"><a href="#cb2-151" tabindex="-1"></a>      bench_results <span class="ot">&lt;-</span> <span class="fu">run_rcpp_benchmark</span>(</span>
+<span id="cb2-152"><a href="#cb2-152" tabindex="-1"></a>        <span class="at">n_x =</span> n_x, <span class="at">n_y =</span> n_y, <span class="at">overlap_pct =</span> overlap</span>
+<span id="cb2-153"><a href="#cb2-153" tabindex="-1"></a>      )</span>
+<span id="cb2-154"><a href="#cb2-154" tabindex="-1"></a>      </span>
+<span id="cb2-155"><a href="#cb2-155" tabindex="-1"></a>      results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, bench_results)</span>
+<span id="cb2-156"><a href="#cb2-156" tabindex="-1"></a>      </span>
+<span id="cb2-157"><a href="#cb2-157" tabindex="-1"></a>      <span class="co"># Print progress</span></span>
+<span id="cb2-158"><a href="#cb2-158" tabindex="-1"></a>      <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Completed benchmark for x=%d, y=%d, overlap=%.1f</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-159"><a href="#cb2-159" tabindex="-1"></a>                  n_x, n_y, overlap))</span>
+<span id="cb2-160"><a href="#cb2-160" tabindex="-1"></a>    }</span>
+<span id="cb2-161"><a href="#cb2-161" tabindex="-1"></a>  }</span>
+<span id="cb2-162"><a href="#cb2-162" tabindex="-1"></a>  </span>
+<span id="cb2-163"><a href="#cb2-163" tabindex="-1"></a>  <span class="fu">return</span>(results)</span>
+<span id="cb2-164"><a href="#cb2-164" tabindex="-1"></a>}</span>
+<span id="cb2-165"><a href="#cb2-165" tabindex="-1"></a></span>
+<span id="cb2-166"><a href="#cb2-166" tabindex="-1"></a><span class="co"># Run the scaling benchmark</span></span>
+<span id="cb2-167"><a href="#cb2-167" tabindex="-1"></a>benchmark_results <span class="ot">&lt;-</span> <span class="fu">run_rcpp_scaling_benchmark</span>()</span>
+<span id="cb2-168"><a href="#cb2-168" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 10000 rows, y: 1000 rows, overlap: 10.0%</span></span>
+<span id="cb2-169"><a href="#cb2-169" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-170"><a href="#cb2-170" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-171"><a href="#cb2-171" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-172"><a href="#cb2-172" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.002 s, original: 0.044 s, Rcpp: 0.005 s</span></span>
+<span id="cb2-173"><a href="#cb2-173" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 8.80x</span></span>
+<span id="cb2-174"><a href="#cb2-174" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.40x</span></span>
+<span id="cb2-175"><a href="#cb2-175" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=10000, y=1000, overlap=0.1</span></span>
+<span id="cb2-176"><a href="#cb2-176" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 10000 rows, y: 1000 rows, overlap: 50.0%</span></span>
+<span id="cb2-177"><a href="#cb2-177" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-178"><a href="#cb2-178" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-179"><a href="#cb2-179" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-180"><a href="#cb2-180" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.002 s, original: 0.041 s, Rcpp: 0.006 s</span></span>
+<span id="cb2-181"><a href="#cb2-181" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 6.83x</span></span>
+<span id="cb2-182"><a href="#cb2-182" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.33x</span></span>
+<span id="cb2-183"><a href="#cb2-183" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=10000, y=1000, overlap=0.5</span></span>
+<span id="cb2-184"><a href="#cb2-184" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 10000 rows, y: 1000 rows, overlap: 90.0%</span></span>
+<span id="cb2-185"><a href="#cb2-185" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-186"><a href="#cb2-186" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-187"><a href="#cb2-187" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-188"><a href="#cb2-188" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.002 s, original: 0.043 s, Rcpp: 0.006 s</span></span>
+<span id="cb2-189"><a href="#cb2-189" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 7.17x</span></span>
+<span id="cb2-190"><a href="#cb2-190" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.33x</span></span>
+<span id="cb2-191"><a href="#cb2-191" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=10000, y=1000, overlap=0.9</span></span>
+<span id="cb2-192"><a href="#cb2-192" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 1000 rows, overlap: 10.0%</span></span>
+<span id="cb2-193"><a href="#cb2-193" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-194"><a href="#cb2-194" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-195"><a href="#cb2-195" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-196"><a href="#cb2-196" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.006 s, original: 0.576 s, Rcpp: 0.028 s</span></span>
+<span id="cb2-197"><a href="#cb2-197" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 20.57x</span></span>
+<span id="cb2-198"><a href="#cb2-198" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.21x</span></span>
+<span id="cb2-199"><a href="#cb2-199" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=1000, overlap=0.1</span></span>
+<span id="cb2-200"><a href="#cb2-200" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 1000 rows, overlap: 50.0%</span></span>
+<span id="cb2-201"><a href="#cb2-201" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-202"><a href="#cb2-202" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-203"><a href="#cb2-203" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-204"><a href="#cb2-204" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.007 s, original: 0.640 s, Rcpp: 0.032 s</span></span>
+<span id="cb2-205"><a href="#cb2-205" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 20.00x</span></span>
+<span id="cb2-206"><a href="#cb2-206" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.22x</span></span>
+<span id="cb2-207"><a href="#cb2-207" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=1000, overlap=0.5</span></span>
+<span id="cb2-208"><a href="#cb2-208" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 1000 rows, overlap: 90.0%</span></span>
+<span id="cb2-209"><a href="#cb2-209" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-210"><a href="#cb2-210" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-211"><a href="#cb2-211" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-212"><a href="#cb2-212" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.006 s, original: 0.648 s, Rcpp: 0.034 s</span></span>
+<span id="cb2-213"><a href="#cb2-213" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 19.06x</span></span>
+<span id="cb2-214"><a href="#cb2-214" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.18x</span></span>
+<span id="cb2-215"><a href="#cb2-215" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=1000, overlap=0.9</span></span>
+<span id="cb2-216"><a href="#cb2-216" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 1000000 rows, y: 1000 rows, overlap: 10.0%</span></span>
+<span id="cb2-217"><a href="#cb2-217" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-218"><a href="#cb2-218" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-219"><a href="#cb2-219" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-220"><a href="#cb2-220" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.050 s, original: 10.712 s, Rcpp: 0.392 s</span></span>
+<span id="cb2-221"><a href="#cb2-221" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 27.33x</span></span>
+<span id="cb2-222"><a href="#cb2-222" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.13x</span></span>
+<span id="cb2-223"><a href="#cb2-223" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=1000000, y=1000, overlap=0.1</span></span>
+<span id="cb2-224"><a href="#cb2-224" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 1000000 rows, y: 1000 rows, overlap: 50.0%</span></span>
+<span id="cb2-225"><a href="#cb2-225" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-226"><a href="#cb2-226" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-227"><a href="#cb2-227" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-228"><a href="#cb2-228" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.062 s, original: 10.397 s, Rcpp: 0.325 s</span></span>
+<span id="cb2-229"><a href="#cb2-229" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 31.99x</span></span>
+<span id="cb2-230"><a href="#cb2-230" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.19x</span></span>
+<span id="cb2-231"><a href="#cb2-231" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=1000000, y=1000, overlap=0.5</span></span>
+<span id="cb2-232"><a href="#cb2-232" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 1000000 rows, y: 1000 rows, overlap: 90.0%</span></span>
+<span id="cb2-233"><a href="#cb2-233" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-234"><a href="#cb2-234" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-235"><a href="#cb2-235" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-236"><a href="#cb2-236" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.052 s, original: 11.633 s, Rcpp: 0.329 s</span></span>
+<span id="cb2-237"><a href="#cb2-237" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 35.36x</span></span>
+<span id="cb2-238"><a href="#cb2-238" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.16x</span></span>
+<span id="cb2-239"><a href="#cb2-239" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=1000000, y=1000, overlap=0.9</span></span>
+<span id="cb2-240"><a href="#cb2-240" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 100000 rows, overlap: 10.0%</span></span>
+<span id="cb2-241"><a href="#cb2-241" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-242"><a href="#cb2-242" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-243"><a href="#cb2-243" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-244"><a href="#cb2-244" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.020 s, original: 2.249 s, Rcpp: 0.099 s</span></span>
+<span id="cb2-245"><a href="#cb2-245" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 22.72x</span></span>
+<span id="cb2-246"><a href="#cb2-246" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.20x</span></span>
+<span id="cb2-247"><a href="#cb2-247" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=100000, overlap=0.1</span></span>
+<span id="cb2-248"><a href="#cb2-248" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 100000 rows, overlap: 50.0%</span></span>
+<span id="cb2-249"><a href="#cb2-249" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-250"><a href="#cb2-250" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-251"><a href="#cb2-251" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-252"><a href="#cb2-252" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.018 s, original: 2.031 s, Rcpp: 0.109 s</span></span>
+<span id="cb2-253"><a href="#cb2-253" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 18.63x</span></span>
+<span id="cb2-254"><a href="#cb2-254" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.17x</span></span>
+<span id="cb2-255"><a href="#cb2-255" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=100000, overlap=0.5</span></span>
+<span id="cb2-256"><a href="#cb2-256" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 100000 rows, y: 100000 rows, overlap: 90.0%</span></span>
+<span id="cb2-257"><a href="#cb2-257" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-258"><a href="#cb2-258" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-259"><a href="#cb2-259" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-260"><a href="#cb2-260" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.021 s, original: 1.893 s, Rcpp: 0.123 s</span></span>
+<span id="cb2-261"><a href="#cb2-261" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 15.39x</span></span>
+<span id="cb2-262"><a href="#cb2-262" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 0.17x</span></span>
+<span id="cb2-263"><a href="#cb2-263" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=100000, y=100000, overlap=0.9</span></span>
+<span id="cb2-264"><a href="#cb2-264" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 1000000 rows, y: 100000 rows, overlap: 10.0%</span></span>
+<span id="cb2-265"><a href="#cb2-265" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-266"><a href="#cb2-266" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-267"><a href="#cb2-267" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-268"><a href="#cb2-268" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.682 s, original: 16.612 s, Rcpp: 0.420 s</span></span>
+<span id="cb2-269"><a href="#cb2-269" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 39.55x</span></span>
+<span id="cb2-270"><a href="#cb2-270" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 1.62x</span></span>
+<span id="cb2-271"><a href="#cb2-271" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=1000000, y=100000, overlap=0.1</span></span>
+<span id="cb2-272"><a href="#cb2-272" tabindex="-1"></a><span class="co">#&gt; Generating test data with x: 1000000 rows, y: 100000 rows, overlap: 50.0%</span></span>
+<span id="cb2-273"><a href="#cb2-273" tabindex="-1"></a><span class="co">#&gt; Running standard dplyr join...</span></span>
+<span id="cb2-274"><a href="#cb2-274" tabindex="-1"></a><span class="co">#&gt; Running original bloom_join...</span></span>
+<span id="cb2-275"><a href="#cb2-275" tabindex="-1"></a><span class="co">#&gt; Running Rcpp-accelerated bloom_join...</span></span>
+<span id="cb2-276"><a href="#cb2-276" tabindex="-1"></a><span class="co">#&gt;   dplyr: 0.788 s, original: 16.800 s, Rcpp: 0.516 s</span></span>
+<span id="cb2-277"><a href="#cb2-277" tabindex="-1"></a><span class="co">#&gt;   Speedup over original: 32.56x</span></span>
+<span id="cb2-278"><a href="#cb2-278" tabindex="-1"></a><span class="co">#&gt;   Speedup over dplyr: 1.53x</span></span>
+<span id="cb2-279"><a href="#cb2-279" tabindex="-1"></a><span class="co">#&gt; Completed benchmark for x=1000000, y=100000, overlap=0.5</span></span>
+<span id="cb2-280"><a href="#cb2-280" tabindex="-1"></a></span>
+<span id="cb2-281"><a href="#cb2-281" tabindex="-1"></a><span class="co"># Save results</span></span>
+<span id="cb2-282"><a href="#cb2-282" tabindex="-1"></a><span class="fu">write.csv</span>(benchmark_results, <span class="st">&quot;rcpp_benchmark_results.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-283"><a href="#cb2-283" tabindex="-1"></a></span>
+<span id="cb2-284"><a href="#cb2-284" tabindex="-1"></a><span class="co"># Create visualization</span></span>
+<span id="cb2-285"><a href="#cb2-285" tabindex="-1"></a>plot_rcpp_benchmark <span class="ot">&lt;-</span> <span class="cf">function</span>(results) {</span>
+<span id="cb2-286"><a href="#cb2-286" tabindex="-1"></a>  <span class="co"># Add a label for the data size</span></span>
+<span id="cb2-287"><a href="#cb2-287" tabindex="-1"></a>  results<span class="sc">$</span>data_size <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="fu">format</span>(results<span class="sc">$</span>n_x, <span class="at">scientific =</span> <span class="cn">TRUE</span>), <span class="st">&quot; x &quot;</span>, </span>
+<span id="cb2-288"><a href="#cb2-288" tabindex="-1"></a>                             <span class="fu">format</span>(results<span class="sc">$</span>n_y, <span class="at">scientific =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb2-289"><a href="#cb2-289" tabindex="-1"></a>  </span>
+<span id="cb2-290"><a href="#cb2-290" tabindex="-1"></a>  <span class="co"># Add a readable overlap label</span></span>
+<span id="cb2-291"><a href="#cb2-291" tabindex="-1"></a>  results<span class="sc">$</span>overlap_label <span class="ot">&lt;-</span> <span class="fu">paste0</span>(results<span class="sc">$</span>overlap <span class="sc">*</span> <span class="dv">100</span>, <span class="st">&quot;% overlap&quot;</span>)</span>
+<span id="cb2-292"><a href="#cb2-292" tabindex="-1"></a>  </span>
+<span id="cb2-293"><a href="#cb2-293" tabindex="-1"></a>  <span class="co"># Plot execution time by method</span></span>
+<span id="cb2-294"><a href="#cb2-294" tabindex="-1"></a>  p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(results, <span class="fu">aes</span>(<span class="at">x =</span> method, <span class="at">y =</span> time, <span class="at">fill =</span> method)) <span class="sc">+</span></span>
+<span id="cb2-295"><a href="#cb2-295" tabindex="-1"></a>    <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">&quot;identity&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-296"><a href="#cb2-296" tabindex="-1"></a>    <span class="fu">facet_grid</span>(overlap_label <span class="sc">~</span> data_size, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-297"><a href="#cb2-297" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> comma) <span class="sc">+</span></span>
+<span id="cb2-298"><a href="#cb2-298" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Execution Time by Method&quot;</span>,</span>
+<span id="cb2-299"><a href="#cb2-299" tabindex="-1"></a>         <span class="at">x =</span> <span class="st">&quot;Method&quot;</span>,</span>
+<span id="cb2-300"><a href="#cb2-300" tabindex="-1"></a>         <span class="at">y =</span> <span class="st">&quot;Time (seconds)&quot;</span>,</span>
+<span id="cb2-301"><a href="#cb2-301" tabindex="-1"></a>         <span class="at">fill =</span> <span class="st">&quot;Method&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-302"><a href="#cb2-302" tabindex="-1"></a>    <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb2-303"><a href="#cb2-303" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>),</span>
+<span id="cb2-304"><a href="#cb2-304" tabindex="-1"></a>          <span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span>
+<span id="cb2-305"><a href="#cb2-305" tabindex="-1"></a>  </span>
+<span id="cb2-306"><a href="#cb2-306" tabindex="-1"></a>  <span class="co"># Calculate speedup relative to dplyr and original</span></span>
+<span id="cb2-307"><a href="#cb2-307" tabindex="-1"></a>  speedup_data <span class="ot">&lt;-</span> results <span class="sc">%&gt;%</span></span>
+<span id="cb2-308"><a href="#cb2-308" tabindex="-1"></a>    <span class="fu">group_by</span>(n_x, n_y, overlap, data_size, overlap_label) <span class="sc">%&gt;%</span></span>
+<span id="cb2-309"><a href="#cb2-309" tabindex="-1"></a>    <span class="fu">summarize</span>(</span>
+<span id="cb2-310"><a href="#cb2-310" tabindex="-1"></a>      <span class="at">rcpp_time =</span> time[method <span class="sc">==</span> <span class="st">&quot;bloom_join_rcpp&quot;</span>],</span>
+<span id="cb2-311"><a href="#cb2-311" tabindex="-1"></a>      <span class="at">orig_time =</span> time[method <span class="sc">==</span> <span class="st">&quot;bloom_join_original&quot;</span>],</span>
+<span id="cb2-312"><a href="#cb2-312" tabindex="-1"></a>      <span class="at">dplyr_time =</span> time[method <span class="sc">==</span> <span class="st">&quot;dplyr_join&quot;</span>],</span>
+<span id="cb2-313"><a href="#cb2-313" tabindex="-1"></a>      <span class="at">vs_orig =</span> orig_time <span class="sc">/</span> rcpp_time,</span>
+<span id="cb2-314"><a href="#cb2-314" tabindex="-1"></a>      <span class="at">vs_dplyr =</span> dplyr_time <span class="sc">/</span> rcpp_time,</span>
+<span id="cb2-315"><a href="#cb2-315" tabindex="-1"></a>      <span class="at">reduction =</span> reduction[method <span class="sc">==</span> <span class="st">&quot;bloom_join_rcpp&quot;</span>],</span>
+<span id="cb2-316"><a href="#cb2-316" tabindex="-1"></a>      <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb2-317"><a href="#cb2-317" tabindex="-1"></a>    )</span>
+<span id="cb2-318"><a href="#cb2-318" tabindex="-1"></a>  </span>
+<span id="cb2-319"><a href="#cb2-319" tabindex="-1"></a>  <span class="co"># Convert to long format for plotting</span></span>
+<span id="cb2-320"><a href="#cb2-320" tabindex="-1"></a>  speedup_long <span class="ot">&lt;-</span> tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(</span>
+<span id="cb2-321"><a href="#cb2-321" tabindex="-1"></a>    speedup_data,</span>
+<span id="cb2-322"><a href="#cb2-322" tabindex="-1"></a>    <span class="at">cols =</span> <span class="fu">c</span>(vs_orig, vs_dplyr),</span>
+<span id="cb2-323"><a href="#cb2-323" tabindex="-1"></a>    <span class="at">names_to =</span> <span class="st">&quot;comparison&quot;</span>,</span>
+<span id="cb2-324"><a href="#cb2-324" tabindex="-1"></a>    <span class="at">values_to =</span> <span class="st">&quot;speedup&quot;</span></span>
+<span id="cb2-325"><a href="#cb2-325" tabindex="-1"></a>  )</span>
+<span id="cb2-326"><a href="#cb2-326" tabindex="-1"></a>  </span>
+<span id="cb2-327"><a href="#cb2-327" tabindex="-1"></a>  <span class="co"># Clean up comparison labels</span></span>
+<span id="cb2-328"><a href="#cb2-328" tabindex="-1"></a>  speedup_long<span class="sc">$</span>comparison <span class="ot">&lt;-</span> <span class="fu">factor</span>(</span>
+<span id="cb2-329"><a href="#cb2-329" tabindex="-1"></a>    speedup_long<span class="sc">$</span>comparison,</span>
+<span id="cb2-330"><a href="#cb2-330" tabindex="-1"></a>    <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;vs_orig&quot;</span>, <span class="st">&quot;vs_dplyr&quot;</span>),</span>
+<span id="cb2-331"><a href="#cb2-331" tabindex="-1"></a>    <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">&quot;vs Original BloomJoin&quot;</span>, <span class="st">&quot;vs dplyr&quot;</span>)</span>
+<span id="cb2-332"><a href="#cb2-332" tabindex="-1"></a>  )</span>
+<span id="cb2-333"><a href="#cb2-333" tabindex="-1"></a>  </span>
+<span id="cb2-334"><a href="#cb2-334" tabindex="-1"></a>  <span class="co"># Plot speedup</span></span>
+<span id="cb2-335"><a href="#cb2-335" tabindex="-1"></a>  p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(speedup_long, <span class="fu">aes</span>(<span class="at">x =</span> data_size, <span class="at">y =</span> speedup, <span class="at">fill =</span> comparison)) <span class="sc">+</span></span>
+<span id="cb2-336"><a href="#cb2-336" tabindex="-1"></a>    <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">&quot;identity&quot;</span>, <span class="at">position =</span> <span class="st">&quot;dodge&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-337"><a href="#cb2-337" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span> overlap_label) <span class="sc">+</span></span>
+<span id="cb2-338"><a href="#cb2-338" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">1</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">color =</span> <span class="st">&quot;red&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-339"><a href="#cb2-339" tabindex="-1"></a>    <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1fx&quot;</span>, speedup)), </span>
+<span id="cb2-340"><a href="#cb2-340" tabindex="-1"></a>              <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.9</span>),</span>
+<span id="cb2-341"><a href="#cb2-341" tabindex="-1"></a>              <span class="at">vjust =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb2-342"><a href="#cb2-342" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Speedup of Rcpp BloomJoin&quot;</span>,</span>
+<span id="cb2-343"><a href="#cb2-343" tabindex="-1"></a>         <span class="at">subtitle =</span> <span class="st">&quot;Values above 1 indicate Rcpp implementation is faster&quot;</span>,</span>
+<span id="cb2-344"><a href="#cb2-344" tabindex="-1"></a>         <span class="at">x =</span> <span class="st">&quot;Data Size&quot;</span>,</span>
+<span id="cb2-345"><a href="#cb2-345" tabindex="-1"></a>         <span class="at">y =</span> <span class="st">&quot;Speedup Factor&quot;</span>,</span>
+<span id="cb2-346"><a href="#cb2-346" tabindex="-1"></a>         <span class="at">fill =</span> <span class="st">&quot;Comparison&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-347"><a href="#cb2-347" tabindex="-1"></a>    <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb2-348"><a href="#cb2-348" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span>
+<span id="cb2-349"><a href="#cb2-349" tabindex="-1"></a>  </span>
+<span id="cb2-350"><a href="#cb2-350" tabindex="-1"></a>  <span class="co"># Plot relationship between reduction and speedup</span></span>
+<span id="cb2-351"><a href="#cb2-351" tabindex="-1"></a>  p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(speedup_data, <span class="fu">aes</span>(<span class="at">x =</span> reduction, <span class="at">y =</span> vs_orig, <span class="at">color =</span> data_size)) <span class="sc">+</span></span>
+<span id="cb2-352"><a href="#cb2-352" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">3</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb2-353"><a href="#cb2-353" tabindex="-1"></a>    <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">&quot;lm&quot;</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-354"><a href="#cb2-354" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Impact of Reduction Percentage on Speedup&quot;</span>,</span>
+<span id="cb2-355"><a href="#cb2-355" tabindex="-1"></a>         <span class="at">x =</span> <span class="st">&quot;Reduction Percentage&quot;</span>,</span>
+<span id="cb2-356"><a href="#cb2-356" tabindex="-1"></a>         <span class="at">y =</span> <span class="st">&quot;Speedup vs Original BloomJoin&quot;</span>,</span>
+<span id="cb2-357"><a href="#cb2-357" tabindex="-1"></a>         <span class="at">color =</span> <span class="st">&quot;Data Size&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-358"><a href="#cb2-358" tabindex="-1"></a>    <span class="fu">theme_minimal</span>()</span>
+<span id="cb2-359"><a href="#cb2-359" tabindex="-1"></a>  </span>
+<span id="cb2-360"><a href="#cb2-360" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">time_comparison =</span> p1, <span class="at">speedup =</span> p2, <span class="at">reduction_impact =</span> p3))</span>
+<span id="cb2-361"><a href="#cb2-361" tabindex="-1"></a>}</span>
+<span id="cb2-362"><a href="#cb2-362" tabindex="-1"></a></span>
+<span id="cb2-363"><a href="#cb2-363" tabindex="-1"></a><span class="co"># Generate visualizations</span></span>
+<span id="cb2-364"><a href="#cb2-364" tabindex="-1"></a>plots <span class="ot">&lt;-</span> <span class="fu">plot_rcpp_benchmark</span>(benchmark_results)</span>
+<span id="cb2-365"><a href="#cb2-365" tabindex="-1"></a></span>
+<span id="cb2-366"><a href="#cb2-366" tabindex="-1"></a><span class="co"># Save plots</span></span>
+<span id="cb2-367"><a href="#cb2-367" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;rcpp_time_comparison.png&quot;</span>, plots<span class="sc">$</span>time_comparison, <span class="at">width =</span> <span class="dv">12</span>, <span class="at">height =</span> <span class="dv">8</span>)</span>
+<span id="cb2-368"><a href="#cb2-368" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;rcpp_speedup.png&quot;</span>, plots<span class="sc">$</span>speedup, <span class="at">width =</span> <span class="dv">10</span>, <span class="at">height =</span> <span class="dv">6</span>)</span>
+<span id="cb2-369"><a href="#cb2-369" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;rcpp_reduction_impact.png&quot;</span>, plots<span class="sc">$</span>reduction_impact, <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="dv">6</span>)</span>
+<span id="cb2-370"><a href="#cb2-370" tabindex="-1"></a><span class="co">#&gt; `geom_smooth()` using formula = &#39;y ~ x&#39;</span></span>
+<span id="cb2-371"><a href="#cb2-371" tabindex="-1"></a></span>
+<span id="cb2-372"><a href="#cb2-372" tabindex="-1"></a><span class="co"># Print summary of findings</span></span>
+<span id="cb2-373"><a href="#cb2-373" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Summary of Rcpp Performance:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-374"><a href="#cb2-374" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-375"><a href="#cb2-375" tabindex="-1"></a><span class="co">#&gt; Summary of Rcpp Performance:</span></span>
+<span id="cb2-376"><a href="#cb2-376" tabindex="-1"></a></span>
+<span id="cb2-377"><a href="#cb2-377" tabindex="-1"></a>summary_by_size <span class="ot">&lt;-</span> benchmark_results <span class="sc">%&gt;%</span></span>
+<span id="cb2-378"><a href="#cb2-378" tabindex="-1"></a>  <span class="fu">group_by</span>(n_x, n_y, method) <span class="sc">%&gt;%</span></span>
+<span id="cb2-379"><a href="#cb2-379" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb2-380"><a href="#cb2-380" tabindex="-1"></a>    <span class="at">avg_time =</span> <span class="fu">mean</span>(time),</span>
+<span id="cb2-381"><a href="#cb2-381" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb2-382"><a href="#cb2-382" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb2-383"><a href="#cb2-383" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(</span>
+<span id="cb2-384"><a href="#cb2-384" tabindex="-1"></a>    <span class="at">names_from =</span> method,</span>
+<span id="cb2-385"><a href="#cb2-385" tabindex="-1"></a>    <span class="at">values_from =</span> avg_time</span>
+<span id="cb2-386"><a href="#cb2-386" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb2-387"><a href="#cb2-387" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb2-388"><a href="#cb2-388" tabindex="-1"></a>    <span class="at">rcpp_vs_original =</span> bloom_join_original <span class="sc">/</span> bloom_join_rcpp,</span>
+<span id="cb2-389"><a href="#cb2-389" tabindex="-1"></a>    <span class="at">rcpp_vs_dplyr =</span> dplyr_join <span class="sc">/</span> bloom_join_rcpp</span>
+<span id="cb2-390"><a href="#cb2-390" tabindex="-1"></a>  )</span>
+<span id="cb2-391"><a href="#cb2-391" tabindex="-1"></a></span>
+<span id="cb2-392"><a href="#cb2-392" tabindex="-1"></a><span class="fu">print</span>(summary_by_size)</span>
+<span id="cb2-393"><a href="#cb2-393" tabindex="-1"></a><span class="co">#&gt; # A tibble: 5 × 7</span></span>
+<span id="cb2-394"><a href="#cb2-394" tabindex="-1"></a><span class="co">#&gt;       n_x    n_y bloom_join_original bloom_join_rcpp dplyr_join rcpp_vs_original</span></span>
+<span id="cb2-395"><a href="#cb2-395" tabindex="-1"></a><span class="co">#&gt;     &lt;dbl&gt;  &lt;dbl&gt;               &lt;dbl&gt;           &lt;dbl&gt;      &lt;dbl&gt;            &lt;dbl&gt;</span></span>
+<span id="cb2-396"><a href="#cb2-396" tabindex="-1"></a><span class="co">#&gt; 1   10000   1000              0.0427         0.00567    0.00200             7.53</span></span>
+<span id="cb2-397"><a href="#cb2-397" tabindex="-1"></a><span class="co">#&gt; 2  100000   1000              0.621          0.0313     0.00633            19.8 </span></span>
+<span id="cb2-398"><a href="#cb2-398" tabindex="-1"></a><span class="co">#&gt; 3  100000 100000              2.06           0.110      0.0197             18.6 </span></span>
+<span id="cb2-399"><a href="#cb2-399" tabindex="-1"></a><span class="co">#&gt; 4 1000000   1000             10.9            0.349      0.0547             31.3 </span></span>
+<span id="cb2-400"><a href="#cb2-400" tabindex="-1"></a><span class="co">#&gt; 5 1000000 100000             16.7            0.468      0.735              35.7 </span></span>
+<span id="cb2-401"><a href="#cb2-401" tabindex="-1"></a><span class="co">#&gt; # ℹ 1 more variable: rcpp_vs_dplyr &lt;dbl&gt;</span></span>
+<span id="cb2-402"><a href="#cb2-402" tabindex="-1"></a></span>
+<span id="cb2-403"><a href="#cb2-403" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Overall speedup summary:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-404"><a href="#cb2-404" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-405"><a href="#cb2-405" tabindex="-1"></a><span class="co">#&gt; Overall speedup summary:</span></span>
+<span id="cb2-406"><a href="#cb2-406" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Average speedup vs original: %.2fx</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-407"><a href="#cb2-407" tabindex="-1"></a>            <span class="fu">mean</span>(summary_by_size<span class="sc">$</span>rcpp_vs_original, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb2-408"><a href="#cb2-408" tabindex="-1"></a><span class="co">#&gt; Average speedup vs original: 22.60x</span></span>
+<span id="cb2-409"><a href="#cb2-409" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Average speedup vs dplyr: %.2fx</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-410"><a href="#cb2-410" tabindex="-1"></a>            <span class="fu">mean</span>(summary_by_size<span class="sc">$</span>rcpp_vs_dplyr, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb2-411"><a href="#cb2-411" tabindex="-1"></a><span class="co">#&gt; Average speedup vs dplyr: 0.49x</span></span>
+<span id="cb2-412"><a href="#cb2-412" tabindex="-1"></a></span>
+<span id="cb2-413"><a href="#cb2-413" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Recommendations based on data size:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-414"><a href="#cb2-414" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-415"><a href="#cb2-415" tabindex="-1"></a><span class="co">#&gt; Recommendations based on data size:</span></span>
+<span id="cb2-416"><a href="#cb2-416" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(summary_by_size)) {</span>
+<span id="cb2-417"><a href="#cb2-417" tabindex="-1"></a>  row <span class="ot">&lt;-</span> summary_by_size[i,]</span>
+<span id="cb2-418"><a href="#cb2-418" tabindex="-1"></a>  </span>
+<span id="cb2-419"><a href="#cb2-419" tabindex="-1"></a>  best_method <span class="ot">&lt;-</span> <span class="cf">if</span> (row<span class="sc">$</span>bloom_join_rcpp <span class="sc">&lt;</span> row<span class="sc">$</span>dplyr_join <span class="sc">&amp;&amp;</span> </span>
+<span id="cb2-420"><a href="#cb2-420" tabindex="-1"></a>                     row<span class="sc">$</span>bloom_join_rcpp <span class="sc">&lt;</span> row<span class="sc">$</span>bloom_join_original) {</span>
+<span id="cb2-421"><a href="#cb2-421" tabindex="-1"></a>    <span class="st">&quot;bloom_join_rcpp&quot;</span></span>
+<span id="cb2-422"><a href="#cb2-422" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (row<span class="sc">$</span>dplyr_join <span class="sc">&lt;</span> row<span class="sc">$</span>bloom_join_original) {</span>
+<span id="cb2-423"><a href="#cb2-423" tabindex="-1"></a>    <span class="st">&quot;dplyr_join&quot;</span></span>
+<span id="cb2-424"><a href="#cb2-424" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-425"><a href="#cb2-425" tabindex="-1"></a>    <span class="st">&quot;bloom_join_original&quot;</span></span>
+<span id="cb2-426"><a href="#cb2-426" tabindex="-1"></a>  }</span>
+<span id="cb2-427"><a href="#cb2-427" tabindex="-1"></a>  </span>
+<span id="cb2-428"><a href="#cb2-428" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;For data size %s x %s: %s is fastest</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb2-429"><a href="#cb2-429" tabindex="-1"></a>              <span class="fu">format</span>(row<span class="sc">$</span>n_x, <span class="at">scientific =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb2-430"><a href="#cb2-430" tabindex="-1"></a>              <span class="fu">format</span>(row<span class="sc">$</span>n_y, <span class="at">scientific =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb2-431"><a href="#cb2-431" tabindex="-1"></a>              best_method))</span>
+<span id="cb2-432"><a href="#cb2-432" tabindex="-1"></a>}</span>
+<span id="cb2-433"><a href="#cb2-433" tabindex="-1"></a><span class="co">#&gt; For data size 1e+04 x 1e+03: dplyr_join is fastest</span></span>
+<span id="cb2-434"><a href="#cb2-434" tabindex="-1"></a><span class="co">#&gt; For data size 1e+05 x 1e+03: dplyr_join is fastest</span></span>
+<span id="cb2-435"><a href="#cb2-435" tabindex="-1"></a><span class="co">#&gt; For data size 1e+05 x 1e+05: dplyr_join is fastest</span></span>
+<span id="cb2-436"><a href="#cb2-436" tabindex="-1"></a><span class="co">#&gt; For data size 1e+06 x 1e+03: dplyr_join is fastest</span></span>
+<span id="cb2-437"><a href="#cb2-437" tabindex="-1"></a><span class="co">#&gt; For data size 1e+06 x 1e+05: bloom_join_rcpp is fastest</span></span></code></pre></div>
 
 
 
