@@ -2,7 +2,7 @@
 % Please edit documentation in R/bloomjoin.R
 \name{bloom_join}
 \alias{bloom_join}
-\title{Perform a join between two data frames using Bloom filter optimization}
+\title{Join two data frames using a hash-based filtering approach similar to Bloom filters}
 \usage{
 bloom_join(
   x,
@@ -15,31 +15,28 @@ bloom_join(
 )
 }
 \arguments{
-\item{x}{The larger data frame}
+\item{x}{A data frame}
 
-\item{y}{The smaller data frame}
+\item{y}{A data frame}
 
-\item{by}{Character vector of variables to join by}
+\item{by}{A character vector of variables to join by}
 
-\item{type}{The type of join: "inner", "left", "right", or "full"}
+\item{type}{Type of join: "inner", "left", "right", "full", "semi", or "anti"}
 
-\item{bloom_size}{Bloom filter size, defaults to size of y}
+\item{bloom_size}{Size of the Bloom filter. Defaults to the number of rows in y}
 
-\item{false_positive_rate}{Acceptable rate of false positives (between 0 and 1)}
+\item{false_positive_rate}{False positive rate for the Bloom filter}
 
-\item{verbose}{Whether to print information about the filtering process}
+\item{verbose}{Whether to print progress messages}
 }
 \value{
-A data frame
+A joined data frame with a class of "bloomjoin" and additional attributes
 }
 \description{
-Perform a join between two data frames using Bloom filter optimization
+Join two data frames using a hash-based filtering approach similar to Bloom filters
 }
 \examples{
-# Create test data
-large_df <- data.frame(id = 1:1000, value = runif(1000))
-small_df <- data.frame(id = sample(1:2000, 100), info = letters[1:100])
-
-# Perform bloom filter join
-result <- bloom_join(large_df, small_df, by = "id")
+x <- data.frame(id = 1:100, value_x = rnorm(100))
+y <- data.frame(id = 50:150, value_y = rnorm(101))
+result <- bloom_join(x, y, by = "id")
 }
