@@ -10,7 +10,7 @@ BloomJoin provides an alternative join implementation for R that uses a hash-bas
 
 ```r
 # Install from GitHub
-devtools::install_github("yourusername/bloomjoin")
+devtools::install_github("gojiplus/bloomjoin")
 ```
 
 ## Usage
@@ -45,61 +45,14 @@ This pre-filtering step can significantly reduce the size of the join operation 
 
 ## Performance Benchmarks
 
-We conducted extensive benchmarks comparing BloomJoin to standard dplyr joins and data.table joins across various scenarios. Here's an honest assessment of when BloomJoin provides benefits:
+Bloom join is faster in only 6 out of 60 cases. 
 
-### When BloomJoin Performs Better
-
-BloomJoin was faster in specific scenarios:
-
-| Join Type | Key Columns | Avg Speedup | Count | Avg X Rows | Avg Y Rows | Avg Size Ratio | Avg Overlap |
-|-----------|------------|-------------|-------|------------|------------|----------------|-------------|
-| left      | 1          | 1.41        | 5     | 100,000    | 4,600      | 64             | 0.42        |
-| left      | 3          | 1.07        | 1     | 100,000    | 10,000     | 10             | 0.5         |
-
-The data suggests that BloomJoin offers the most significant advantages when:
+The data (and theory) suggests that Bloom join offers an advantages when:
 
 1. The primary table (x) is much larger than the lookup table (y) (high size ratio)
 2. You're performing left joins rather than inner joins
 3. Using a single key column rather than composite keys
 4. The overlap between the tables is moderate (around 40-50%)
-
-### Statistical Analysis
-
-Our predictive model identified factors that influence BloomJoin performance:
-
-```
-                   Estimate   Std. Error       z value   Pr(>|z|)
-(Intercept)   -1.273048e+02 2.519650e+04 -5.052479e-03 0.99596872
-log(n_x)       9.526247e+00 2.112624e+03  4.509201e-03 0.99640219
-log(n_y)       2.117300e-16 7.006168e-01  3.022051e-16 1.00000000
-overlap       -2.513696e+00 2.806205e+00 -8.957635e-01 0.37037907
-key_cols      -1.826039e+00 9.317801e-01 -1.959732e+00 0.05002714
-join_typeleft  2.253877e+01 6.578793e+03  3.425973e-03 0.99726647
-```
-
-While most coefficients didn't reach statistical significance (likely due to limited sample size), the key insights are:
-
-- Negative effect of multiple key columns (p = 0.05) suggests BloomJoin works better with single-column keys
-- Negative coefficient for overlap suggests lower overlap increases BloomJoin's advantage (though not statistically significant)
-- Positive coefficient for left joins suggests better performance for left joins than inner joins
-
-## Recommendations for Use
-
-Based on our benchmarks, we recommend using BloomJoin when:
-
-1. You have a large primary table joining against a much smaller lookup table
-2. You're performing a left join where many keys from the primary table may not exist in the lookup table
-3. You're joining on a single column rather than multiple columns
-4. The join operation is a performance bottleneck in your workflow
-
-In other scenarios, standard dplyr joins or data.table may provide comparable or better performance.
-
-## Limitations
-
-1. BloomJoin is optimized for certain join scenarios and may not outperform standard joins in all cases
-2. The implementation doesn't use actual Bloom filters but a hash-based approach for simplicity
-3. Currently most efficient for inner and left joins; less optimized for other join types
-4. Performance benefits decrease with composite keys (multiple join columns)
 
 ## Future Work
 
