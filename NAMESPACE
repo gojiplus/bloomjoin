@@ -2,7 +2,6 @@
 
 export(bloom_join)
 export(bloom_join_rcpp)
-import(bloom)
 importFrom(Rcpp,evalCpp)
 importFrom(dplyr,anti_join)
 importFrom(dplyr,full_join)
