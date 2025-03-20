@@ -14,9 +14,9 @@ Imports:
     dplyr,
     Rcpp (>= 1.0.0)
 LinkingTo: Rcpp
-Suggests:
-    ggplot2,
-    microbenchmark,
+Suggests: 
+    testthat (>= 3.0.0),
     knitr,
     rmarkdown
+Config/testthat/edition: 3
 VignetteBuilder: knitr

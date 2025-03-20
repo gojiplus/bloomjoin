@@ -12,7 +12,7 @@
 #' @importFrom ggplot2 ggplot aes geom_bar theme theme_minimal element_text scale_fill_manual labs
 #' @importFrom rlang .data
 #' @useDynLib bloomjoin
-#' @importFrom Rcpp, evalCpp
+#' @importFrom Rcpp evalCpp
 #'
 #' @keywords internal
 "_PACKAGE"

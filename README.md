@@ -1,4 +1,4 @@
-# BloomJoin
+# BloomJoin: Bloom Filter Based Joins
 
 An R package implementing Bloom filter-based joins for improved performance with large datasets.
 
