@@ -7,6 +7,8 @@ vignette: >
   %\VignetteIndexEntry{Benchmarking Bloom Filter Joins}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+packages:
+  - tidyr
 ---
 
 ```{r, include = FALSE}
@@ -22,6 +24,7 @@ knitr::opts_chunk$set(
 ```{r, include=FALSE}
 library(bloomjoin)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(microbenchmark)
 library(data.table)
