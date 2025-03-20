@@ -45,7 +45,7 @@ This pre-filtering step can significantly reduce the size of the join operation 
 
 ## Performance Benchmarks
 
-Bloom join is faster in only 6 out of 60 cases. 
+The current implementation of Bloom join is faster in only 6 out of 60 cases. 
 
 The data (and theory) suggests that Bloom join offers an advantages when:
 
