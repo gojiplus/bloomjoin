@@ -2,7 +2,7 @@
 % Please edit documentation in R/bloomjoin.R
 \name{bloom_join}
 \alias{bloom_join}
-\title{Join two data frames using a hash-based filtering approach similar to Bloom filters}
+\title{Join two data frames using a Bloom filter implemented with Rcpp}
 \usage{
 bloom_join(
   x,
@@ -23,9 +23,9 @@ bloom_join(
 
 \item{type}{Type of join: "inner", "left", "right", "full", "semi", or "anti"}
 
-\item{bloom_size}{Size of the Bloom filter. Defaults to the number of rows in y}
+\item{bloom_size}{Size of the Bloom filter. If NULL, will be automatically calculated}
 
-\item{false_positive_rate}{False positive rate for the Bloom filter}
+\item{false_positive_rate}{False positive rate for the Bloom filter (default: 0.01)}
 
 \item{verbose}{Whether to print progress messages}
 }
@@ -33,10 +33,12 @@ bloom_join(
 A joined data frame with a class of "bloomjoin" and additional attributes
 }
 \description{
-Join two data frames using a hash-based filtering approach similar to Bloom filters
+This function uses a high-performance Rcpp implementation of Bloom filters to efficiently join
+large data frames. The Bloom filter is used to pre-filter the left data frame, reducing the
+number of comparisons needed for the actual join.
 }
 \examples{
-x <- data.frame(id = 1:100, value_x = rnorm(100))
-y <- data.frame(id = 50:150, value_y = rnorm(101))
+x <- data.frame(id = 1:100000, value_x = rnorm(100000))
+y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
 result <- bloom_join(x, y, by = "id")
 }

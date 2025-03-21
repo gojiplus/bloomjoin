@@ -14,6 +14,10 @@ Imports:
     dplyr,
     Rcpp (>= 1.0.0)
 LinkingTo: Rcpp
+Depends:
+    ggplot2,
+    microbenchmark,
+    rlang
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
