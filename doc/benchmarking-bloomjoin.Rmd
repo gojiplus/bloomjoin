@@ -1,6 +1,6 @@
 ---
 title: "Benchmarking Bloom Filter Joins"
-author: "Your Name"
+author: "Gaurav Sood"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -9,7 +9,15 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 packages:
   - tidyr
+  - dplyr
+  - ggplot2
+  - bloomjoin
+  - microbenchmark
+  - data.table
+  - stargazer
+  - reshape2
 ---
+
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -21,14 +29,21 @@ knitr::opts_chunk$set(
 )
 ```
 
+In this vignette, we benchmark the performance of a specialized bloom filter join function (bloom_join) compared to standard join methods provided by dplyr and data.table. We generate synthetic test data, run benchmarks over various configurations (data size, overlap, key columns, and join types), and then visualize and analyze the results. Finally, we model which factors predict when bloom_join outperforms the standard joins.
+
 ```{r, include=FALSE}
+library(tibble)
+library(tidyverse)   # includes dplyr, tidyr, purrr, etc.
+library(kableExtra)
 library(bloomjoin)
-library(dplyr)
-library(tidyr)
+library(reshape2)    # For dcast function
 library(ggplot2)
 library(microbenchmark)
 library(data.table)
 ```
+
+### Helper Functions
+Below, we define helper functions that will be used in our benchmarking process. First, we define a function for performing standard joins using dplyr so that its interface matches bloom_join.
 
 ```{r, include = TRUE}
 # Helper function for standard joins that matches the bloom_join interface
@@ -49,41 +64,34 @@ perform_standard_join <- function(x, y, by = NULL, type = "inner") {
     stop("Unsupported join type")
   }
 }
+```
 
+We also define a function to generate synthetic test data with a controllable percentage of overlapping keys.
+
+```{r, include = TRUE}
 # Function to generate test data with controllable overlap
 generate_test_data <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols = 3) {
-  # Calculate the number of overlapping keys
   n_overlap <- round(min(n_x, n_y) * overlap_pct)
   
-  # Generate keys for both data frames
   if (key_cols == 1) {
-    # Single key column
     keys_x <- sample(1:(n_x * 10), n_x)
     keys_y <- c(sample(keys_x, n_overlap), sample(setdiff(1:(n_y * 10), keys_x), n_y - n_overlap))
   } else {
-    # Multiple key columns
     keys_x <- list()
     keys_y <- list()
     for (i in 1:key_cols) {
       keys_x[[i]] <- sample(1:(n_x * 10), n_x)
-      
-      # Ensure proper overlap
       keys_y[[i]] <- c(
         sample(keys_x[[i]], n_overlap),
         sample(setdiff(1:(n_y * 10), keys_x[[i]]), n_y - n_overlap)
       )
-      
-      # Randomize the order for y
       keys_y[[i]] <- sample(keys_y[[i]], n_y)
     }
-    
-    # Convert to data frames
     keys_x <- as.data.frame(keys_x)
     keys_y <- as.data.frame(keys_y)
     names(keys_x) <- names(keys_y) <- paste0("key", 1:key_cols)
   }
   
-  # Generate value columns
   df_x <- if (key_cols == 1) {
     data.frame(key = keys_x)
   } else {
@@ -96,7 +104,6 @@ generate_test_data <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_
     keys_y
   }
   
-  # Add value columns
   for (i in 1:value_cols) {
     df_x[[paste0("x_val", i)]] <- rnorm(n_x)
     df_y[[paste0("y_val", i)]] <- rnorm(n_y)
@@ -105,31 +112,27 @@ generate_test_data <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_
   return(list(x = df_x, y = df_y))
 }
 
+```
+
+Next, we define a function to run a single benchmark comparison across different join methods. This function generates test data, verifies that the results from bloom_join and standard join are equivalent, and then uses microbenchmark to compare their performance. If available, it also benchmarks the data.table join.
+
+```{r, include = TRUE}
+# Function to run a single benchmark comparison
 # Function to run a single benchmark comparison
 run_benchmark <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols = 3, 
                           join_type = "inner", times = 10, verbose = TRUE) {
-  # Generate test data
   data <- generate_test_data(n_x, n_y, overlap_pct, key_cols, value_cols)
   df_x <- data$x
   df_y <- data$y
   
-  # Define join columns
   by_cols <- if (key_cols == 1) "key" else paste0("key", 1:key_cols)
-  
-  # Turn off bloom_join's verbose output for the benchmark
   bloom_verbose <- FALSE
   
-  # Run the benchmark
-  if (verbose) {
-    cat(sprintf("Benchmarking with:\n  - x rows: %d\n  - y rows: %d\n  - overlap: %.1f%%\n  - key columns: %d\n  - join type: %s\n",
-                n_x, n_y, overlap_pct * 100, key_cols, join_type))
-  }
-  
-  # First, verify that both joins produce the same result
-  bloom_result <- bloom_join(df_x, df_y, by = by_cols, type = join_type, verbose = FALSE)
+  # Verify that both join methods produce equivalent results
+  # Suppress warnings during verification
+  bloom_result <- suppressWarnings(bloom_join(df_x, df_y, by = by_cols, type = join_type, verbose = FALSE))
   dplyr_result <- perform_standard_join(df_x, df_y, by = by_cols, type = join_type)
   
-  # Check if the results are equivalent (row count and column names should match)
   equivalent <- nrow(bloom_result) == nrow(dplyr_result) && 
                 all(sort(names(bloom_result)) == sort(names(dplyr_result)))
   
@@ -137,19 +140,19 @@ run_benchmark <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols 
     warning("Bloom join and dplyr join produced different results!")
   }
   
-  # Run the benchmark
-  bm <- microbenchmark(
-    "bloom_join" = bloom_join(df_x, df_y, by = by_cols, type = join_type, verbose = bloom_verbose),
-    "dplyr_join" = perform_standard_join(df_x, df_y, by = by_cols, type = join_type),
-    times = times
+  # Suppress warnings during benchmarking
+  suppressWarnings(
+    bm <- microbenchmark(
+      "bloom_join" = bloom_join(df_x, df_y, by = by_cols, type = join_type, verbose = bloom_verbose),
+      "dplyr_join" = perform_standard_join(df_x, df_y, by = by_cols, type = join_type),
+      times = times
+    )
   )
   
-  # If data.table is available, add it to the comparison
   if (requireNamespace("data.table", quietly = TRUE)) {
     dt_x <- as.data.table(df_x)
     dt_y <- as.data.table(df_y)
     
-    # Set keys for data.table
     if (key_cols == 1) {
       setkeyv(dt_x, "key")
       setkeyv(dt_y, "key")
@@ -158,21 +161,21 @@ run_benchmark <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols 
       setkeyv(dt_y, paste0("key", 1:key_cols))
     }
     
-    # Add data.table to benchmark
-    bm_dt <- microbenchmark(
-      "data.table_join" = if (join_type == "inner") {
-        dt_x[dt_y, nomatch = 0]
-      } else if (join_type == "left") {
-        dt_x[dt_y]
-      } else if (join_type == "right") {
-        dt_y[dt_x]
-      } else {
-        stop("Unsupported join type for data.table in this benchmark")
-      },
-      times = times
+    suppressWarnings(
+      bm_dt <- microbenchmark(
+        "data.table_join" = if (join_type == "inner") {
+          dt_x[dt_y, nomatch = 0]
+        } else if (join_type == "left") {
+          dt_x[dt_y]
+        } else if (join_type == "right") {
+          dt_y[dt_x]
+        } else {
+          stop("Unsupported join type for data.table in this benchmark")
+        },
+        times = times
+      )
     )
     
-    # Combine results
     bm_combined <- rbind(bm, bm_dt)
     return(list(benchmark = bm_combined, equivalent = equivalent))
   }
@@ -182,28 +185,18 @@ run_benchmark <- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols 
 
 # Function to run a series of benchmarks with varying parameters
 run_benchmark_series <- function() {
-  # Create data frames to store results
   results <- data.frame()
   
-  # Test different data sizes
   data_sizes <- list(
-    c(10000, 1000),   # x larger than y
-    c(1000, 10000),   # y larger than x
-    c(100000, 1000),  # x much larger than y
-    c(100000, 10000), # x larger than y, both large
-    c(10000, 10000)   # equal size
+    c(1000000, 100000),
+    c(10000000, 100000),
+    c(1000000, 1000000)
   )
   
-  # Test different overlaps
   overlaps <- c(0.1, 0.5, 0.9)
-  
-  # Test different join types
   join_types <- c("inner", "left")
+  key_cols_list <- c(1, 2)
   
-  # Test different numbers of key columns
-  key_cols_list <- c(1, 3)
-  
-  # Run benchmarks
   for (size in data_sizes) {
     n_x <- size[1]
     n_y <- size[2]
@@ -211,16 +204,16 @@ run_benchmark_series <- function() {
     for (overlap in overlaps) {
       for (key_cols in key_cols_list) {
         for (join_type in join_types) {
-          # Skip combinations that would be too slow
           if (n_x * n_y > 1e9 && overlap < 0.5) {
             next
           }
           
-          # Run the benchmark
-          bm_result <- run_benchmark(n_x, n_y, overlap, key_cols, 3, join_type, times = 5)
-          bm <- bm_result$benchmark
+          # Suppress warnings and capture output
+          output <- capture.output({
+            bm_result <- run_benchmark(n_x, n_y, overlap, key_cols, 3, join_type, times = 5)
+          })
           
-          # Extract and store results
+          bm <- bm_result$benchmark
           bm_summary <- summary(bm)
           
           for (i in 1:nrow(bm_summary)) {
@@ -240,7 +233,6 @@ run_benchmark_series <- function() {
             ))
           }
           
-          # Print progress
           cat(sprintf("Completed: x=%d, y=%d, overlap=%.1f, keys=%d, type=%s\n", 
                       n_x, n_y, overlap, key_cols, join_type))
         }
@@ -250,28 +242,91 @@ run_benchmark_series <- function() {
   
   return(results)
 }
+```
 
+Finally, we define a function to run a series of benchmarks over various parameter configurations.
+
+```{r, include = TRUE}
+# Function to run a series of benchmarks with varying parameters
+run_benchmark_series <- function() {
+  results <- data.frame()
+  
+  data_sizes <- list(
+    c(1000000, 100000),
+    c(10000000, 100000),
+    c(1000000, 1000000)
+  )
+  
+  overlaps <- c(0.1, 0.5, 0.9)
+  join_types <- c("inner", "left")
+  key_cols_list <- c(1, 2)
+  
+  for (size in data_sizes) {
+    n_x <- size[1]
+    n_y <- size[2]
+    
+    for (overlap in overlaps) {
+      for (key_cols in key_cols_list) {
+        for (join_type in join_types) {
+          if (n_x * n_y > 1e9 && overlap < 0.5) {
+            next
+          }
+          
+          bm_result <- run_benchmark(n_x, n_y, overlap, key_cols, 3, join_type, times = 5)
+          bm <- bm_result$benchmark
+          bm_summary <- summary(bm)
+          
+          for (i in 1:nrow(bm_summary)) {
+            results <- rbind(results, data.frame(
+              n_x = n_x,
+              n_y = n_y,
+              overlap = overlap,
+              key_cols = key_cols,
+              join_type = join_type,
+              method = bm_summary$expr[i],
+              median_time_ms = bm_summary$median[i] / 1e6,
+              mean_time_ms = bm_summary$mean[i] / 1e6,
+              min_time_ms = bm_summary$min[i] / 1e6,
+              max_time_ms = bm_summary$max[i] / 1e6,
+              n_eval = bm_summary$neval[i],
+              equivalent = bm_result$equivalent
+            ))
+          }
+          
+          cat(sprintf("Completed: x=%d, y=%d, overlap=%.1f, keys=%d, type=%s\n", 
+                      n_x, n_y, overlap, key_cols, join_type))
+        }
+      }
+    }
+  }
+  
+  return(results)
+}
+```
+
+Now, we run the benchmark series over the different configurations and store the results.
+
+```{r, include = TRUE}
 # Run the benchmark series
 benchmark_results <- run_benchmark_series()
+```
 
-# Save results
-write.csv(benchmark_results, "bloom_join_benchmark_results.csv", row.names = FALSE)
-
-# Create visualization
+```{r}
 plot_results <- function(results) {
   # Filter only bloom_join and dplyr_join for comparison
-  results_filtered <- results[results$method %in% c("bloom_join", "dplyr_join"), ]
+  results_filtered <- results %>%
+    filter(method %in% c("bloom_join", "dplyr_join"))
   
-  # Calculate speedup
+  # Calculate speedup using reshape2::dcast
   speedup_data <- reshape2::dcast(results_filtered, 
-                                 n_x + n_y + overlap + key_cols + join_type ~ method, 
-                                 value.var = "median_time_ms")
+                                  n_x + n_y + overlap + key_cols + join_type ~ method, 
+                                  value.var = "median_time_ms")
   
-  speedup_data$speedup <- speedup_data$dplyr_join / speedup_data$bloom_join
-  speedup_data$size_ratio <- speedup_data$n_x / speedup_data$n_y
-  speedup_data$total_rows <- speedup_data$n_x + speedup_data$n_y
+  speedup_data <- speedup_data %>%
+    mutate(speedup = dplyr_join / bloom_join,
+           size_ratio = n_x / n_y)
   
-  # Plot overall speedup
+  # Overall speedup plot
   p1 <- ggplot(speedup_data, aes(x = n_x, y = n_y, size = speedup, color = speedup > 1)) +
     geom_point(alpha = 0.7) +
     scale_color_manual(values = c("red", "blue"), 
@@ -282,12 +337,12 @@ plot_results <- function(results) {
       key_cols = c("1" = "1 Key Column", "3" = "3 Key Columns")
     )) +
     labs(title = "Bloom Join vs dplyr Join Performance",
-         subtitle = "Size of point represents speedup factor (bloom_join time / dplyr join time)",
+         subtitle = "Point size represents speedup factor (dplyr time / bloom_join time)",
          x = "Number of rows in x", y = "Number of rows in y", color = "Performance") +
     theme_minimal() +
     scale_x_log10() + scale_y_log10()
   
-  # Plot performance by overlap percentage
+  # Performance by overlap plot
   p2 <- ggplot(speedup_data, aes(x = as.factor(overlap), y = speedup, fill = as.factor(key_cols))) +
     geom_boxplot() +
     geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
@@ -296,11 +351,11 @@ plot_results <- function(results) {
     )) +
     labs(title = "Impact of Overlap Percentage on Bloom Join Performance",
          subtitle = "Values above 1 indicate bloom_join is faster than dplyr",
-         x = "Overlap Percentage", y = "Speedup Factor (dplyr time / bloom time)",
+         x = "Overlap Percentage", y = "Speedup Factor (dplyr time / bloom_join time)",
          fill = "Number of Key Columns") +
     theme_minimal()
   
-  # Plot absolute performance comparison
+  # Absolute performance comparison plot
   p3 <- ggplot(results_filtered, aes(x = paste(n_x, "x", n_y), y = median_time_ms, fill = method)) +
     geom_bar(stat = "identity", position = "dodge") +
     facet_grid(join_type ~ key_cols, scales = "free_y", labeller = labeller(
@@ -313,19 +368,23 @@ plot_results <- function(results) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
-  # Return list of plots
-  return(list(speedup_overview = p1, overlap_impact = p2, absolute_performance = p3))
+  list(speedup_overview = p1, overlap_impact = p2, absolute_performance = p3)
 }
 
-# Generate plots
+# Generate and display the plots
 plots <- plot_results(benchmark_results)
+plots$speedup_overview
+```
+```{r}
+plots$overlap_impact
+```
 
-# Save plots
-ggsave("bloom_join_speedup_overview.png", plots$speedup_overview, width = 10, height = 8)
-ggsave("bloom_join_overlap_impact.png", plots$overlap_impact, width = 10, height = 6)
-ggsave("bloom_join_absolute_performance.png", plots$absolute_performance, width = 12, height = 8)
+```{r}
+plots$absolute_performance
+```
 
-# Print a summary of when bloom_join is faster
+```{r, include = TRUE}
+# Summarize when bloom_join is faster
 speedup_summary <- benchmark_results %>%
   filter(method %in% c("bloom_join", "dplyr_join")) %>%
   select(n_x, n_y, overlap, key_cols, join_type, method, median_time_ms) %>%
@@ -351,319 +410,8 @@ print(
       avg_x_rows = mean(n_x),
       avg_y_rows = mean(n_y),
       avg_size_ratio = mean(size_ratio),
-      avg_overlap = mean(overlap)
-    )
-)
-
-# Advanced analysis: fit a model to predict when bloom_join is faster
-model <- glm(is_faster ~ log(n_x) + log(n_y) + overlap + key_cols + join_type,
-             data = speedup_summary, family = binomial())
-
-cat("\nFactors predicting when bloom_join is faster:\n")
-print(summary(model)$coefficients)
-```
-
-```{r}
-# Benchmark comparing Rcpp bloom join with original and dplyr
-
-library(dplyr)
-library(ggplot2)
-library(scales)
-library(microbenchmark)
-
-# Generate test data with controllable overlap
-generate_test_data <- function(n_x, n_y, overlap_pct = 0.5) {
-  # Calculate the number of overlapping keys
-  n_overlap <- round(min(n_x, n_y) * overlap_pct)
-  
-  # Generate keys for both data frames
-  keys_x <- sample(1:(n_x * 10), n_x)
-  keys_y <- c(sample(keys_x, n_overlap), 
-              sample(setdiff(1:(n_y * 10), keys_x), n_y - n_overlap))
-  
-  # Create data frames
-  x <- data.frame(
-    key = keys_x,
-    value_x = rnorm(n_x)
-  )
-  
-  y <- data.frame(
-    key = keys_y,
-    value_y = rnorm(n_y)
-  )
-  
-  return(list(x = x, y = y))
-}
-
-# Function to run a benchmark comparison
-run_rcpp_benchmark <- function(n_x, n_y, overlap_pct = 0.5, times = 3, verbose = TRUE) {
-  # Generate test data
-  if (verbose) {
-    cat(sprintf("Generating test data with x: %d rows, y: %d rows, overlap: %.1f%%\n", 
-                n_x, n_y, overlap_pct * 100))
-  }
-  data <- generate_test_data(n_x, n_y, overlap_pct)
-  
-  # Prepare results data frame
-  results <- data.frame(
-    n_x = integer(),
-    n_y = integer(),
-    overlap = numeric(),
-    method = character(),
-    time = numeric(),
-    reduction = numeric()
-  )
-  
-  # Run dplyr join
-  if (verbose) cat("Running standard dplyr join...\n")
-  dplyr_time <- system.time(
-    dplyr_result <- inner_join(data$x, data$y, by = "key")
-  )["elapsed"]
-  
-  results <- rbind(results, data.frame(
-    n_x = n_x,
-    n_y = n_y,
-    overlap = overlap_pct,
-    method = "dplyr_join",
-    time = dplyr_time,
-    reduction = NA
-  ))
-  
-  # Run original bloom_join
-  if (verbose) cat("Running original bloom_join...\n")
-  orig_time <- system.time(
-    orig_result <- bloom_join(data$x, data$y, by = "key", verbose = FALSE)
-  )["elapsed"]
-  
-  # Get reduction percentage
-  orig_stats <- attr(orig_result, "bloom_filter_stats")
-  
-  results <- rbind(results, data.frame(
-    n_x = n_x,
-    n_y = n_y,
-    overlap = overlap_pct,
-    method = "bloom_join_original",
-    time = orig_time,
-    reduction = orig_stats$reduction_percent
-  ))
-  
-  # Run Rcpp bloom_join
-  if (verbose) cat("Running Rcpp-accelerated bloom_join...\n")
-  rcpp_time <- system.time(
-    rcpp_result <- bloom_join_rcpp(data$x, data$y, by = "key", verbose = FALSE)
-  )["elapsed"]
-  
-  # Get reduction percentage
-  rcpp_stats <- attr(rcpp_result, "bloom_filter_stats")
-  
-  results <- rbind(results, data.frame(
-    n_x = n_x,
-    n_y = n_y,
-    overlap = overlap_pct,
-    method = "bloom_join_rcpp",
-    time = rcpp_time,
-    reduction = rcpp_stats$reduction_percent
-  ))
-  
-  # Verify results match
-  if (!identical(nrow(orig_result), nrow(rcpp_result))) {
-    warning("Result row counts differ between original and Rcpp versions!")
-  }
-  
-  if (verbose) {
-    cat(sprintf("  dplyr: %.3f s, original: %.3f s, Rcpp: %.3f s\n", 
-                dplyr_time, orig_time, rcpp_time))
-    cat(sprintf("  Speedup over original: %.2fx\n", orig_time / rcpp_time))
-    cat(sprintf("  Speedup over dplyr: %.2fx\n", dplyr_time / rcpp_time))
-  }
-  
-  return(results)
-}
-
-# Run benchmarks with different data sizes
-run_rcpp_scaling_benchmark <- function() {
-  # Test different data sizes
-  data_sizes <- list(
-    c(10000, 1000),     # 10K x 1K
-    c(100000, 1000),    # 100K x 1K
-    c(1000000, 1000),   # 1M x 1K
-    c(10000000, 1000),  # 10M x 1K (very large)
-    c(100000, 100000),  # 100K x 100K
-    c(1000000, 100000)  # 1M x 100K (large both sides)
-  )
-  
-  # Test different overlaps
-  overlaps <- c(0.1, 0.5, 0.9)
-  
-  # Run benchmarks
-  results <- data.frame()
-  
-  for (size in data_sizes) {
-    n_x <- size[1]
-    n_y <- size[2]
-    
-    # Skip the largest datasets for CRAN tests or limited systems
-    if (n_x >= 10000000 && Sys.getenv("NOT_CRAN") != "true") {
-      next
-    }
-    
-    # Run with different overlaps
-    for (overlap in overlaps) {
-      # Skip some combinations for very large datasets
-      if (n_x >= 1000000 && n_y >= 100000 && overlap > 0.5) {
-        next  # These can be very memory intensive
-      }
-      
-      bench_results <- run_rcpp_benchmark(
-        n_x = n_x, n_y = n_y, overlap_pct = overlap
-      )
-      
-      results <- rbind(results, bench_results)
-      
-      # Print progress
-      cat(sprintf("Completed benchmark for x=%d, y=%d, overlap=%.1f\n", 
-                  n_x, n_y, overlap))
-    }
-  }
-  
-  return(results)
-}
-
-# Run the scaling benchmark
-benchmark_results <- run_rcpp_scaling_benchmark()
-
-# Save results
-write.csv(benchmark_results, "rcpp_benchmark_results.csv", row.names = FALSE)
-
-# Create visualization
-plot_rcpp_benchmark <- function(results) {
-  # Add a label for the data size
-  results$data_size <- paste0(format(results$n_x, scientific = TRUE), " x ", 
-                             format(results$n_y, scientific = TRUE))
-  
-  # Add a readable overlap label
-  results$overlap_label <- paste0(results$overlap * 100, "% overlap")
-  
-  # Plot execution time by method
-  p1 <- ggplot(results, aes(x = method, y = time, fill = method)) +
-    geom_bar(stat = "identity") +
-    facet_grid(overlap_label ~ data_size, scales = "free_y") +
-    scale_y_continuous(labels = comma) +
-    labs(title = "Execution Time by Method",
-         x = "Method",
-         y = "Time (seconds)",
-         fill = "Method") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          legend.position = "bottom")
-  
-  # Calculate speedup relative to dplyr and original
-  speedup_data <- results %>%
-    group_by(n_x, n_y, overlap, data_size, overlap_label) %>%
-    summarize(
-      rcpp_time = time[method == "bloom_join_rcpp"],
-      orig_time = time[method == "bloom_join_original"],
-      dplyr_time = time[method == "dplyr_join"],
-      vs_orig = orig_time / rcpp_time,
-      vs_dplyr = dplyr_time / rcpp_time,
-      reduction = reduction[method == "bloom_join_rcpp"],
+      avg_overlap = mean(overlap),
       .groups = "drop"
     )
-  
-  # Convert to long format for plotting
-  speedup_long <- tidyr::pivot_longer(
-    speedup_data,
-    cols = c(vs_orig, vs_dplyr),
-    names_to = "comparison",
-    values_to = "speedup"
-  )
-  
-  # Clean up comparison labels
-  speedup_long$comparison <- factor(
-    speedup_long$comparison,
-    levels = c("vs_orig", "vs_dplyr"),
-    labels = c("vs Original BloomJoin", "vs dplyr")
-  )
-  
-  # Plot speedup
-  p2 <- ggplot(speedup_long, aes(x = data_size, y = speedup, fill = comparison)) +
-    geom_bar(stat = "identity", position = "dodge") +
-    facet_wrap(~ overlap_label) +
-    geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
-    geom_text(aes(label = sprintf("%.1fx", speedup)), 
-              position = position_dodge(width = 0.9),
-              vjust = -0.5, size = 3) +
-    labs(title = "Speedup of Rcpp BloomJoin",
-         subtitle = "Values above 1 indicate Rcpp implementation is faster",
-         x = "Data Size",
-         y = "Speedup Factor",
-         fill = "Comparison") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
-  # Plot relationship between reduction and speedup
-  p3 <- ggplot(speedup_data, aes(x = reduction, y = vs_orig, color = data_size)) +
-    geom_point(size = 3, alpha = 0.7) +
-    geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
-    labs(title = "Impact of Reduction Percentage on Speedup",
-         x = "Reduction Percentage",
-         y = "Speedup vs Original BloomJoin",
-         color = "Data Size") +
-    theme_minimal()
-  
-  return(list(time_comparison = p1, speedup = p2, reduction_impact = p3))
-}
-
-# Generate visualizations
-plots <- plot_rcpp_benchmark(benchmark_results)
-
-# Save plots
-ggsave("rcpp_time_comparison.png", plots$time_comparison, width = 12, height = 8)
-ggsave("rcpp_speedup.png", plots$speedup, width = 10, height = 6)
-ggsave("rcpp_reduction_impact.png", plots$reduction_impact, width = 8, height = 6)
-
-# Print summary of findings
-cat("\nSummary of Rcpp Performance:\n")
-
-summary_by_size <- benchmark_results %>%
-  group_by(n_x, n_y, method) %>%
-  summarize(
-    avg_time = mean(time),
-    .groups = "drop"
-  ) %>%
-  pivot_wider(
-    names_from = method,
-    values_from = avg_time
-  ) %>%
-  mutate(
-    rcpp_vs_original = bloom_join_original / bloom_join_rcpp,
-    rcpp_vs_dplyr = dplyr_join / bloom_join_rcpp
-  )
-
-print(summary_by_size)
-
-cat("\nOverall speedup summary:\n")
-cat(sprintf("Average speedup vs original: %.2fx\n", 
-            mean(summary_by_size$rcpp_vs_original, na.rm = TRUE)))
-cat(sprintf("Average speedup vs dplyr: %.2fx\n", 
-            mean(summary_by_size$rcpp_vs_dplyr, na.rm = TRUE)))
-
-cat("\nRecommendations based on data size:\n")
-for (i in 1:nrow(summary_by_size)) {
-  row <- summary_by_size[i,]
-  
-  best_method <- if (row$bloom_join_rcpp < row$dplyr_join && 
-                     row$bloom_join_rcpp < row$bloom_join_original) {
-    "bloom_join_rcpp"
-  } else if (row$dplyr_join < row$bloom_join_original) {
-    "dplyr_join"
-  } else {
-    "bloom_join_original"
-  }
-  
-  cat(sprintf("For data size %s x %s: %s is fastest\n",
-              format(row$n_x, scientific = TRUE), 
-              format(row$n_y, scientific = TRUE),
-              best_method))
-}
+)
 ```
