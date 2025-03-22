@@ -73,8 +73,8 @@ perform_standard_join <- function(x, y, by = NULL, type = "inner") {
 #' y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
 #' result <- bloom_join(x, y, by = "id")
 bloom_join <- function(x, y, by = NULL, type = "inner",
-                            bloom_size = NULL, false_positive_rate = 0.01,
-                            verbose = TRUE) {
+                       bloom_size = NULL, false_positive_rate = 0.01,
+                       verbose = FALSE) {
   # Validate inputs
   if (!is.data.frame(x) || !is.data.frame(y)) {
     stop("Both x and y must be data frames")
@@ -141,15 +141,8 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
 
   # For types other than inner join, we need to handle differently
   if (type != "inner" && type != "semi") {
-    warning("Bloom filtering is most efficient with inner joins. Some extra processing required for other join types.")
-
     # For left join, we need to keep all rows from x anyway
     if (type == "left" || type == "full") {
-      # We can still use Bloom filter to optimize the matching part
-      if (verbose) {
-        message("Using standard join due to join type: ", type)
-      }
-
       # Use standard join but with improved performance
       # Use the original by if we had named vectors
       result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
@@ -157,25 +150,18 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
       # Remove temporary columns if we created them
       if (exists("temp_join_cols")) {
         for (col in temp_join_cols) {
-          if (col %in% names(x)) x[[col]] <- NULL
-          if (col %in% names(y)) y[[col]] <- NULL
           if (col %in% names(result)) result[[col]] <- NULL
         }
       }
 
       # Remove composite keys if we created them
-      if (join_col == ".composite_key") {
-        if (".composite_key" %in% names(x)) x$.composite_key <- NULL
-        if (".composite_key" %in% names(y)) y$.composite_key <- NULL
-        if (".composite_key" %in% names(result)) result$.composite_key <- NULL
+      if (join_col == ".composite_key" && ".composite_key" %in% names(result)) {
+        result$.composite_key <- NULL
       }
 
       return(result)
     }
   }
-
-  # Start timing for performance tracking
-  start_time <- Sys.time()
 
   # Get keys from y table
   keys_in_y <- if (join_col == ".composite_key") {
@@ -195,36 +181,13 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   if (is.null(bloom_size)) {
     # Use the cardinality of unique keys in y
     bloom_size <- length(unique(keys_in_y))
-    if (verbose) {
-      message("Using bloom filter size: ", bloom_size)
-    }
-  }
-
-  # Create Bloom filter and filter the keys using Rcpp
-  if (verbose) {
-    message("Creating Bloom filter with size: ", bloom_size,
-            " and false positive rate: ", false_positive_rate)
   }
 
   # Call the Rcpp function to create the filter and check keys
-  filter_start_time <- Sys.time()
   is_in_filter <- rcpp_filter_keys(keys_in_y, keys_to_check, bloom_size, false_positive_rate)
-  filter_time <- Sys.time() - filter_start_time
 
   # Filter the larger data frame
   x_filtered <- x[is_in_filter, , drop = FALSE]
-
-  # Calculate the reduction percentage
-  reduction <- 100 * (1 - nrow(x_filtered) / nrow(x))
-
-  if (verbose) {
-    message("Filtered ", nrow(x), " rows to ", nrow(x_filtered),
-            " (", round(reduction, 2), "% reduction) in ",
-            round(filter_time, 2), " seconds")
-  }
-
-  # Now perform the actual join on the filtered data
-  start_join_time <- Sys.time()
 
   # If we created a composite key, we need to remove it before the final join
   if (join_col == ".composite_key") {
@@ -239,32 +202,9 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   # Remove temporary columns if we created them
   if (exists("temp_join_cols")) {
     for (col in temp_join_cols) {
-      if (col %in% names(x_filtered)) x_filtered[[col]] <- NULL
-      if (col %in% names(y)) y[[col]] <- NULL
       if (col %in% names(result)) result[[col]] <- NULL
     }
   }
-
-  join_time <- Sys.time() - start_join_time
-  total_time <- Sys.time() - start_time
-
-  if (verbose) {
-    message("Join completed in ", round(join_time, 2), " seconds")
-    message("Total operation time: ", round(total_time, 2), " seconds")
-  }
-
-  # Add class for potential future extensions
-  class(result) <- c("bloomjoin", class(result))
-
-  # Add attributes for performance tracking
-  attr(result, "bloom_filter_stats") <- list(
-    original_rows = nrow(x),
-    filtered_rows = nrow(x_filtered),
-    reduction_percent = reduction,
-    filter_time = filter_time,
-    join_time = join_time,
-    total_time = total_time
-  )
 
   return(result)
 }
