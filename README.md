@@ -45,9 +45,7 @@ This pre-filtering step can significantly reduce the size of the join operation 
 
 ## Performance Benchmarks
 
-Metric	Value
-Average Filter Efficiency	98%
-Average Speedup	1.5×
+See [here](https://htmlpreview.github.io/?https://github.com/gojiplus/bloomjoin/blob/main/doc/benchmarking-bloomjoin.html)
 
 ## Future Work
 
