@@ -15,7 +15,6 @@ Imports:
     Rcpp (>= 1.0.0),
     rlang,
     readr,
-    kableExtra,
     ggplot2,
     microbenchmark
 LinkingTo: Rcpp
@@ -28,6 +27,7 @@ Suggests:
     knitr (>= 1.11),
     lintr,
     xml2,
+    kableExtra,
     reshape2,
     data.table,
     tidyverse
