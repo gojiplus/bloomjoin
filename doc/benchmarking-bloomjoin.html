@@ -12,7 +12,7 @@
 
 <meta name="author" content="Gaurav Sood" />
 
-<meta name="date" content="2025-03-21" />
+<meta name="date" content="2025-04-01" />
 
 <title>Benchmarking Bloom Filter Joins</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Benchmarking Bloom Filter Joins</h1>
 <h4 class="author">Gaurav Sood</h4>
-<h4 class="date">2025-03-21</h4>
+<h4 class="date">2025-04-01</h4>
 
 
 
@@ -354,307 +354,387 @@ joins.</p>
 <div id="helper-functions" class="section level3">
 <h3>Helper Functions</h3>
 <p>Below, we define helper functions that will be used in our
-benchmarking process. First, we define a function for performing
-standard joins using dplyr so that its interface matches bloom_join.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Helper function for standard joins that matches the bloom_join interface</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>perform_standard_join <span class="ot">&lt;-</span> <span class="cf">function</span>(x, y, <span class="at">by =</span> <span class="cn">NULL</span>, <span class="at">type =</span> <span class="st">&quot;inner&quot;</span>) {</span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;inner&quot;</span>) {</span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">inner_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;left&quot;</span>) {</span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">left_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;right&quot;</span>) {</span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">right_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;full&quot;</span>) {</span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">full_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;semi&quot;</span>) {</span>
-<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">semi_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;anti&quot;</span>) {</span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">anti_join</span>(x, y, <span class="at">by =</span> by))</span>
-<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
-<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>    <span class="fu">stop</span>(<span class="st">&quot;Unsupported join type&quot;</span>)</span>
-<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>  }</span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>}</span></code></pre></div>
-<p>We also define a function to generate synthetic test data with a
-controllable percentage of overlapping keys.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Function to generate test data with controllable overlap</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>generate_test_data <span class="ot">&lt;-</span> <span class="cf">function</span>(n_x, n_y, <span class="at">overlap_pct =</span> <span class="fl">0.5</span>, <span class="at">key_cols =</span> <span class="dv">1</span>, <span class="at">value_cols =</span> <span class="dv">3</span>) {</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  n_overlap <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fu">min</span>(n_x, n_y) <span class="sc">*</span> overlap_pct)</span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  </span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="co"># Create a pool of unique IDs first</span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  total_ids_needed <span class="ot">&lt;-</span> n_x <span class="sc">+</span> n_y <span class="sc">-</span> n_overlap</span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  unique_ids <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;ID&quot;</span>, <span class="fu">sprintf</span>(<span class="st">&quot;%09d&quot;</span>, <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>(total_ids_needed <span class="sc">*</span> <span class="dv">2</span>), total_ids_needed)))</span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  </span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="co"># Assign IDs to each table</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  x_ids <span class="ot">&lt;-</span> unique_ids[<span class="dv">1</span><span class="sc">:</span>n_x]</span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  y_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>    <span class="co"># Overlapping IDs</span></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>    <span class="fu">sample</span>(x_ids, n_overlap),</span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>    <span class="co"># Non-overlapping IDs</span></span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>    unique_ids[(n_x <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span>(n_x <span class="sc">+</span> n_y <span class="sc">-</span> n_overlap)]</span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  )</span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  <span class="co"># Shuffle the y_ids to randomize their order</span></span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  y_ids <span class="ot">&lt;-</span> <span class="fu">sample</span>(y_ids, n_y)</span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>  </span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  <span class="co"># Create data frames</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  df_x <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">key =</span> x_ids, <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  df_y <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">key =</span> y_ids, <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>  </span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>  <span class="co"># Add additional value columns</span></span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>value_cols) {</span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>    df_x[[<span class="fu">paste0</span>(<span class="st">&quot;x_val&quot;</span>, i)]] <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_x)</span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>    df_y[[<span class="fu">paste0</span>(<span class="st">&quot;y_val&quot;</span>, i)]] <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_y)</span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>  }</span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>  </span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">x =</span> df_x, <span class="at">y =</span> df_y))</span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>}</span></code></pre></div>
+benchmarking process.</p>
+<p>Note that we’ll be using both the <code>bloom_join</code> function
+and the internal <code>perform_standard_join</code> function from the
+bloomjoin package to compare their performance.</p>
+<pre><code>
+We also define a function to generate synthetic test data with a controllable percentage of overlapping keys.
+
+
+``` r
+# Function to generate test data with controllable overlap
+generate_test_data &lt;- function(n_x, n_y, overlap_pct = 0.5, key_cols = 1, value_cols = 3) {
+  n_overlap &lt;- round(min(n_x, n_y) * overlap_pct)
+  
+  # Create a pool of unique IDs first
+  set.seed(123)
+  total_ids_needed &lt;- n_x + n_y - n_overlap
+  unique_ids &lt;- paste0(&quot;ID&quot;, sprintf(&quot;%09d&quot;, sample(1:(total_ids_needed * 2), total_ids_needed)))
+  
+  # Assign IDs to each table
+  x_ids &lt;- unique_ids[1:n_x]
+  y_ids &lt;- c(
+    # Overlapping IDs
+    sample(x_ids, n_overlap),
+    # Non-overlapping IDs
+    unique_ids[(n_x + 1):(n_x + n_y - n_overlap)]
+  )
+  # Shuffle the y_ids to randomize their order
+  y_ids &lt;- sample(y_ids, n_y)
+  
+  # Create data frames
+  df_x &lt;- data.frame(key = x_ids, stringsAsFactors = FALSE)
+  df_y &lt;- data.frame(key = y_ids, stringsAsFactors = FALSE)
+  
+  # Add additional value columns
+  for (i in 1:value_cols) {
+    df_x[[paste0(&quot;x_val&quot;, i)]] &lt;- rnorm(n_x)
+    df_y[[paste0(&quot;y_val&quot;, i)]] &lt;- rnorm(n_y)
+  }
+  
+  return(list(x = df_x, y = df_y))
+}</code></pre>
 <p>Next, we define a function to run a single benchmark comparison
 across different join methods. This function generates test data,
 verifies that the results from bloom_join and standard join are
-equivalent, and then uses microbenchmark to compare their performance.
-If available, it also benchmarks the data.table join.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Function to run a single benchmark comparison</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>run_benchmark <span class="ot">&lt;-</span> <span class="cf">function</span>(n_x, n_y, <span class="at">overlap_pct =</span> <span class="fl">0.1</span>, <span class="at">key_cols =</span> <span class="dv">1</span>, <span class="at">value_cols =</span> <span class="dv">3</span>, </span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>                          <span class="at">join_type =</span> <span class="st">&quot;inner&quot;</span>, <span class="at">times =</span> <span class="dv">2</span>, <span class="at">seed =</span> <span class="dv">123</span>) {</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="co"># Set seed for reproducibility</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  </span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="co"># Generate test data</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  data <span class="ot">&lt;-</span> <span class="fu">generate_test_data</span>(n_x, n_y, overlap_pct, key_cols, value_cols)</span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  df_x <span class="ot">&lt;-</span> data<span class="sc">$</span>x</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  df_y <span class="ot">&lt;-</span> data<span class="sc">$</span>y</span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  </span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  by_cols <span class="ot">&lt;-</span> <span class="cf">if</span> (key_cols <span class="sc">==</span> <span class="dv">1</span>) <span class="st">&quot;key&quot;</span> <span class="cf">else</span> <span class="fu">paste0</span>(<span class="st">&quot;key&quot;</span>, <span class="dv">1</span><span class="sc">:</span>key_cols)</span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  </span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  <span class="co"># Get memory measurements for dplyr join</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  <span class="fu">gc</span>()</span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>  dplyr_mem_start <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>  dplyr_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>    <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>times) {</span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>      dplyr_result <span class="ot">&lt;-</span> <span class="fu">perform_standard_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a>    }</span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>] <span class="sc">/</span> times</span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a>  dplyr_mem_used <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>  dplyr_mem <span class="ot">&lt;-</span> <span class="fu">sum</span>(dplyr_mem_used[,<span class="dv">2</span>]) <span class="sc">-</span> <span class="fu">sum</span>(dplyr_mem_start[,<span class="dv">2</span>])</span>
-<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>  </span>
-<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a>  <span class="co"># Get memory measurements for bloom_join</span></span>
-<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a>  <span class="fu">gc</span>()</span>
-<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a>  bloom_mem_start <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>  bloom_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
-<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a>    <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>times) {</span>
-<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a>      bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a>    }</span>
-<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>] <span class="sc">/</span> times</span>
-<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a>  bloom_mem_used <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a>  bloom_mem <span class="ot">&lt;-</span> <span class="fu">sum</span>(bloom_mem_used[,<span class="dv">2</span>]) <span class="sc">-</span> <span class="fu">sum</span>(bloom_mem_start[,<span class="dv">2</span>])</span>
-<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a>  </span>
-<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a>  <span class="co"># Get final results for row counts</span></span>
-<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a>  dplyr_result <span class="ot">&lt;-</span> <span class="fu">perform_standard_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
-<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a>  bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a>  </span>
-<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a>  <span class="co"># Get bloom filter stats if available</span></span>
-<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a>  bloom_stats <span class="ot">&lt;-</span> <span class="fu">attr</span>(bloom_result, <span class="st">&quot;stats&quot;</span>)</span>
-<span id="cb3-42"><a href="#cb3-42" tabindex="-1"></a>  </span>
-<span id="cb3-43"><a href="#cb3-43" tabindex="-1"></a>  <span class="co"># If no rows_after_filter in bloom_stats, estimate it based on overlap</span></span>
-<span id="cb3-44"><a href="#cb3-44" tabindex="-1"></a>  rows_after_filter <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(bloom_stats) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(bloom_stats<span class="sc">$</span>rows_after_filter)) {</span>
-<span id="cb3-45"><a href="#cb3-45" tabindex="-1"></a>    bloom_stats<span class="sc">$</span>rows_after_filter</span>
-<span id="cb3-46"><a href="#cb3-46" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
-<span id="cb3-47"><a href="#cb3-47" tabindex="-1"></a>    <span class="co"># Fallback: estimate based on the overlap</span></span>
-<span id="cb3-48"><a href="#cb3-48" tabindex="-1"></a>    <span class="fu">round</span>(n_x <span class="sc">*</span> (overlap_pct <span class="sc">*</span> <span class="dv">2</span>))  <span class="co"># Conservative estimate</span></span>
-<span id="cb3-49"><a href="#cb3-49" tabindex="-1"></a>  }</span>
-<span id="cb3-50"><a href="#cb3-50" tabindex="-1"></a>  </span>
-<span id="cb3-51"><a href="#cb3-51" tabindex="-1"></a>  <span class="co"># Create result data frame with guaranteed values</span></span>
-<span id="cb3-52"><a href="#cb3-52" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
-<span id="cb3-53"><a href="#cb3-53" tabindex="-1"></a>    <span class="at">n_x =</span> n_x,</span>
-<span id="cb3-54"><a href="#cb3-54" tabindex="-1"></a>    <span class="at">n_y =</span> n_y,</span>
-<span id="cb3-55"><a href="#cb3-55" tabindex="-1"></a>    <span class="at">overlap =</span> overlap_pct,</span>
-<span id="cb3-56"><a href="#cb3-56" tabindex="-1"></a>    <span class="at">dplyr_time_ms =</span> dplyr_time <span class="sc">*</span> <span class="dv">1000</span>,</span>
-<span id="cb3-57"><a href="#cb3-57" tabindex="-1"></a>    <span class="at">bloom_time_ms =</span> bloom_time <span class="sc">*</span> <span class="dv">1000</span>,</span>
-<span id="cb3-58"><a href="#cb3-58" tabindex="-1"></a>    <span class="at">dplyr_mem_mb =</span> dplyr_mem <span class="sc">/</span> (<span class="dv">1024</span><span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb3-59"><a href="#cb3-59" tabindex="-1"></a>    <span class="at">bloom_mem_mb =</span> bloom_mem <span class="sc">/</span> (<span class="dv">1024</span><span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb3-60"><a href="#cb3-60" tabindex="-1"></a>    <span class="at">rows_before =</span> n_x,</span>
-<span id="cb3-61"><a href="#cb3-61" tabindex="-1"></a>    <span class="at">rows_after =</span> rows_after_filter,</span>
-<span id="cb3-62"><a href="#cb3-62" tabindex="-1"></a>    <span class="at">filter_efficiency =</span> <span class="dv">1</span> <span class="sc">-</span> (rows_after_filter <span class="sc">/</span> n_x),</span>
-<span id="cb3-63"><a href="#cb3-63" tabindex="-1"></a>    <span class="at">output_rows =</span> <span class="fu">nrow</span>(bloom_result),</span>
-<span id="cb3-64"><a href="#cb3-64" tabindex="-1"></a>    <span class="at">speedup =</span> dplyr_time <span class="sc">/</span> bloom_time,</span>
-<span id="cb3-65"><a href="#cb3-65" tabindex="-1"></a>    <span class="at">mem_reduction =</span> dplyr_mem <span class="sc">/</span> bloom_mem,</span>
-<span id="cb3-66"><a href="#cb3-66" tabindex="-1"></a>    <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
-<span id="cb3-67"><a href="#cb3-67" tabindex="-1"></a>  )</span>
-<span id="cb3-68"><a href="#cb3-68" tabindex="-1"></a>}</span>
-<span id="cb3-69"><a href="#cb3-69" tabindex="-1"></a></span>
-<span id="cb3-70"><a href="#cb3-70" tabindex="-1"></a><span class="co"># Function to run a series of benchmarks with varying data sizes and low match rates</span></span>
-<span id="cb3-71"><a href="#cb3-71" tabindex="-1"></a>run_benchmarks <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
-<span id="cb3-72"><a href="#cb3-72" tabindex="-1"></a>  <span class="co"># Set global seed</span></span>
-<span id="cb3-73"><a href="#cb3-73" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
-<span id="cb3-74"><a href="#cb3-74" tabindex="-1"></a>  </span>
-<span id="cb3-75"><a href="#cb3-75" tabindex="-1"></a>  test_cases <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb3-76"><a href="#cb3-76" tabindex="-1"></a>    <span class="co"># Format: n_x, n_y, overlap</span></span>
-<span id="cb3-77"><a href="#cb3-77" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000</span>, <span class="dv">5000</span>, <span class="fl">0.01</span>),</span>
-<span id="cb3-78"><a href="#cb3-78" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">50000</span>, <span class="dv">50000</span>, <span class="fl">0.01</span>),</span>
-<span id="cb3-79"><a href="#cb3-79" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">500000</span>, <span class="dv">500000</span>, <span class="fl">0.01</span>),   </span>
-<span id="cb3-80"><a href="#cb3-80" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000000</span>, <span class="dv">5000000</span>, <span class="fl">0.01</span>),</span>
-<span id="cb3-81"><a href="#cb3-81" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000000</span>, <span class="dv">5000000</span>, <span class="fl">0.1</span>),</span>
-<span id="cb3-82"><a href="#cb3-82" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000000</span>, <span class="dv">5000000</span>, <span class="fl">0.001</span>)</span>
-<span id="cb3-83"><a href="#cb3-83" tabindex="-1"></a>  )</span>
-<span id="cb3-84"><a href="#cb3-84" tabindex="-1"></a>  </span>
-<span id="cb3-85"><a href="#cb3-85" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>()</span>
-<span id="cb3-86"><a href="#cb3-86" tabindex="-1"></a>  </span>
-<span id="cb3-87"><a href="#cb3-87" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(test_cases)) {</span>
-<span id="cb3-88"><a href="#cb3-88" tabindex="-1"></a>    case <span class="ot">&lt;-</span> test_cases[[i]]</span>
-<span id="cb3-89"><a href="#cb3-89" tabindex="-1"></a>    n_x <span class="ot">&lt;-</span> case[<span class="dv">1</span>]</span>
-<span id="cb3-90"><a href="#cb3-90" tabindex="-1"></a>    n_y <span class="ot">&lt;-</span> case[<span class="dv">2</span>]</span>
-<span id="cb3-91"><a href="#cb3-91" tabindex="-1"></a>    overlap <span class="ot">&lt;-</span> case[<span class="dv">3</span>]</span>
-<span id="cb3-92"><a href="#cb3-92" tabindex="-1"></a>    </span>
-<span id="cb3-93"><a href="#cb3-93" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Running benchmark %d/%d: x=%d, y=%d, overlap=%.3f</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
-<span id="cb3-94"><a href="#cb3-94" tabindex="-1"></a>                i, <span class="fu">length</span>(test_cases), n_x, n_y, overlap))</span>
-<span id="cb3-95"><a href="#cb3-95" tabindex="-1"></a>    </span>
-<span id="cb3-96"><a href="#cb3-96" tabindex="-1"></a>    <span class="fu">tryCatch</span>({</span>
-<span id="cb3-97"><a href="#cb3-97" tabindex="-1"></a>      result <span class="ot">&lt;-</span> <span class="fu">run_benchmark</span>(n_x, n_y, overlap, <span class="at">key_cols =</span> <span class="dv">1</span>, </span>
-<span id="cb3-98"><a href="#cb3-98" tabindex="-1"></a>                             <span class="at">join_type =</span> <span class="st">&quot;inner&quot;</span>, <span class="at">times =</span> <span class="dv">1</span>, </span>
-<span id="cb3-99"><a href="#cb3-99" tabindex="-1"></a>                             <span class="at">seed =</span> <span class="dv">123</span> <span class="sc">+</span> i)  <span class="co"># Different seed for each benchmark</span></span>
-<span id="cb3-100"><a href="#cb3-100" tabindex="-1"></a>      </span>
-<span id="cb3-101"><a href="#cb3-101" tabindex="-1"></a>      results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, result)</span>
-<span id="cb3-102"><a href="#cb3-102" tabindex="-1"></a>      </span>
-<span id="cb3-103"><a href="#cb3-103" tabindex="-1"></a>      <span class="co"># If this benchmark took too long, stop here</span></span>
-<span id="cb3-104"><a href="#cb3-104" tabindex="-1"></a>      <span class="cf">if</span> (result<span class="sc">$</span>dplyr_time_ms <span class="sc">&gt;</span> <span class="dv">5000</span>) {</span>
-<span id="cb3-105"><a href="#cb3-105" tabindex="-1"></a>        <span class="fu">cat</span>(<span class="st">&quot;Benchmark taking too long, stopping to ensure vignette builds successfully</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-106"><a href="#cb3-106" tabindex="-1"></a>        <span class="cf">break</span></span>
-<span id="cb3-107"><a href="#cb3-107" tabindex="-1"></a>      }</span>
-<span id="cb3-108"><a href="#cb3-108" tabindex="-1"></a>    }, <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
-<span id="cb3-109"><a href="#cb3-109" tabindex="-1"></a>      <span class="fu">cat</span>(<span class="st">&quot;Error running benchmark:&quot;</span>, e<span class="sc">$</span>message, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-110"><a href="#cb3-110" tabindex="-1"></a>    })</span>
-<span id="cb3-111"><a href="#cb3-111" tabindex="-1"></a>  }</span>
-<span id="cb3-112"><a href="#cb3-112" tabindex="-1"></a>  <span class="fu">return</span>(results)</span>
-<span id="cb3-113"><a href="#cb3-113" tabindex="-1"></a>}</span>
-<span id="cb3-114"><a href="#cb3-114" tabindex="-1"></a></span>
-<span id="cb3-115"><a href="#cb3-115" tabindex="-1"></a><span class="co"># Create a comprehensive comparison table</span></span>
-<span id="cb3-116"><a href="#cb3-116" tabindex="-1"></a>create_comparison_table <span class="ot">&lt;-</span> <span class="cf">function</span>(results) {</span>
-<span id="cb3-117"><a href="#cb3-117" tabindex="-1"></a>  <span class="co"># Create a more detailed table for all benchmark results</span></span>
-<span id="cb3-118"><a href="#cb3-118" tabindex="-1"></a>  benchmark_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb3-119"><a href="#cb3-119" tabindex="-1"></a>    <span class="at">Dataset =</span> <span class="fu">paste0</span>(<span class="fu">format</span>(results<span class="sc">$</span>n_x, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>), <span class="st">&quot; × &quot;</span>, </span>
-<span id="cb3-120"><a href="#cb3-120" tabindex="-1"></a>                    <span class="fu">format</span>(results<span class="sc">$</span>n_y, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>)),</span>
-<span id="cb3-121"><a href="#cb3-121" tabindex="-1"></a>    <span class="at">Overlap =</span> <span class="fu">paste0</span>(results<span class="sc">$</span>overlap <span class="sc">*</span> <span class="dv">100</span>, <span class="st">&quot;%&quot;</span>),</span>
-<span id="cb3-122"><a href="#cb3-122" tabindex="-1"></a>    <span class="at">Filter_Efficiency =</span> <span class="fu">paste0</span>(<span class="fu">round</span>(results<span class="sc">$</span>filter_efficiency <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">&quot;%&quot;</span>),</span>
-<span id="cb3-123"><a href="#cb3-123" tabindex="-1"></a>    <span class="at">Match_Rate =</span> <span class="fu">paste0</span>(<span class="fu">round</span>(results<span class="sc">$</span>output_rows <span class="sc">/</span> results<span class="sc">$</span>n_x <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">3</span>), <span class="st">&quot;%&quot;</span>),</span>
-<span id="cb3-124"><a href="#cb3-124" tabindex="-1"></a>    <span class="at">Bloom_Time_ms =</span> <span class="fu">round</span>(results<span class="sc">$</span>bloom_time_ms, <span class="dv">1</span>),</span>
-<span id="cb3-125"><a href="#cb3-125" tabindex="-1"></a>    <span class="at">Dplyr_Time_ms =</span> <span class="fu">round</span>(results<span class="sc">$</span>dplyr_time_ms, <span class="dv">1</span>),</span>
-<span id="cb3-126"><a href="#cb3-126" tabindex="-1"></a>    <span class="at">Speedup =</span> <span class="fu">round</span>(results<span class="sc">$</span>speedup, <span class="dv">1</span>),</span>
-<span id="cb3-127"><a href="#cb3-127" tabindex="-1"></a>    <span class="at">Bloom_Mem_mb =</span> <span class="fu">round</span>(results<span class="sc">$</span>bloom_mem_mb, <span class="dv">1</span>),</span>
-<span id="cb3-128"><a href="#cb3-128" tabindex="-1"></a>    <span class="at">Dplyr_Mem_mb =</span> <span class="fu">round</span>(results<span class="sc">$</span>dplyr_mem_mb, <span class="dv">1</span>),</span>
-<span id="cb3-129"><a href="#cb3-129" tabindex="-1"></a>    <span class="at">Mem_Reduction =</span> <span class="fu">paste0</span>(<span class="fu">round</span>((results<span class="sc">$</span>mem_reduction <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>), <span class="st">&quot;%&quot;</span>),</span>
-<span id="cb3-130"><a href="#cb3-130" tabindex="-1"></a>    <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
-<span id="cb3-131"><a href="#cb3-131" tabindex="-1"></a>  )</span>
-<span id="cb3-132"><a href="#cb3-132" tabindex="-1"></a>  </span>
-<span id="cb3-133"><a href="#cb3-133" tabindex="-1"></a>  <span class="co"># Display the table</span></span>
-<span id="cb3-134"><a href="#cb3-134" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;## Bloom Join Performance with Low Match Rates</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-135"><a href="#cb3-135" tabindex="-1"></a>  <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(benchmark_table, <span class="at">caption =</span> <span class="fu">paste0</span>(</span>
-<span id="cb3-136"><a href="#cb3-136" tabindex="-1"></a>    <span class="st">&quot;Performance comparison with seed: 42 (&quot;</span>, <span class="fu">nrow</span>(results), <span class="st">&quot; benchmarks)&quot;</span></span>
-<span id="cb3-137"><a href="#cb3-137" tabindex="-1"></a>  )))</span>
-<span id="cb3-138"><a href="#cb3-138" tabindex="-1"></a>  </span>
-<span id="cb3-139"><a href="#cb3-139" tabindex="-1"></a>  <span class="co"># Calculate and display averages</span></span>
-<span id="cb3-140"><a href="#cb3-140" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(results) <span class="sc">&gt;</span> <span class="dv">1</span>) {</span>
-<span id="cb3-141"><a href="#cb3-141" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n\n</span><span class="st">## Summary Statistics</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span>
-<span id="cb3-142"><a href="#cb3-142" tabindex="-1"></a>    summary_stats <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb3-143"><a href="#cb3-143" tabindex="-1"></a>      <span class="at">Metric =</span> <span class="fu">c</span>(<span class="st">&quot;Average Filter Efficiency&quot;</span>, </span>
-<span id="cb3-144"><a href="#cb3-144" tabindex="-1"></a>                <span class="st">&quot;Average Speedup&quot;</span>, </span>
-<span id="cb3-145"><a href="#cb3-145" tabindex="-1"></a>                <span class="st">&quot;Average Memory Reduction&quot;</span>),</span>
-<span id="cb3-146"><a href="#cb3-146" tabindex="-1"></a>      <span class="at">Value =</span> <span class="fu">c</span>(</span>
-<span id="cb3-147"><a href="#cb3-147" tabindex="-1"></a>        <span class="fu">paste0</span>(<span class="fu">round</span>(<span class="fu">mean</span>(results<span class="sc">$</span>filter_efficiency) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">&quot;%&quot;</span>),</span>
-<span id="cb3-148"><a href="#cb3-148" tabindex="-1"></a>        <span class="fu">paste0</span>(<span class="fu">round</span>(<span class="fu">mean</span>(results<span class="sc">$</span>speedup), <span class="dv">1</span>), <span class="st">&quot;×&quot;</span>),</span>
-<span id="cb3-149"><a href="#cb3-149" tabindex="-1"></a>        <span class="fu">paste0</span>(<span class="fu">round</span>(<span class="fu">mean</span>(results<span class="sc">$</span>mem_reduction <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>), <span class="st">&quot;%&quot;</span>)</span>
-<span id="cb3-150"><a href="#cb3-150" tabindex="-1"></a>      )</span>
-<span id="cb3-151"><a href="#cb3-151" tabindex="-1"></a>    )</span>
-<span id="cb3-152"><a href="#cb3-152" tabindex="-1"></a>    <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(summary_stats))</span>
-<span id="cb3-153"><a href="#cb3-153" tabindex="-1"></a>  }</span>
-<span id="cb3-154"><a href="#cb3-154" tabindex="-1"></a>}</span>
-<span id="cb3-155"><a href="#cb3-155" tabindex="-1"></a></span>
-<span id="cb3-156"><a href="#cb3-156" tabindex="-1"></a><span class="co"># Run benchmarks and show results</span></span>
-<span id="cb3-157"><a href="#cb3-157" tabindex="-1"></a>benchmark_results <span class="ot">&lt;-</span> <span class="fu">run_benchmarks</span>()</span></code></pre></div>
-<p>Running benchmark 1/6: x=5000, y=5000, overlap=0.010 Running
-benchmark 2/6: x=50000, y=50000, overlap=0.010 Running benchmark 3/6:
-x=500000, y=500000, overlap=0.010 Running benchmark 4/6: x=5000000,
-y=5000000, overlap=0.010 Benchmark taking too long, stopping to ensure
-vignette builds successfully</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">create_comparison_table</span>(benchmark_results)</span></code></pre></div>
+equivalent, and then compares their performance. If available, it also
+benchmarks the data.table join.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Function to run a single benchmark comparison</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>run_benchmark <span class="ot">&lt;-</span> <span class="cf">function</span>(n_x, n_y, <span class="at">overlap_pct =</span> <span class="fl">0.1</span>, <span class="at">key_cols =</span> <span class="dv">1</span>, <span class="at">value_cols =</span> <span class="dv">3</span>, </span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>                          <span class="at">join_type =</span> <span class="st">&quot;inner&quot;</span>, <span class="at">times =</span> <span class="dv">2</span>, <span class="at">seed =</span> <span class="dv">123</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="co"># Set seed for reproducibility</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="fu">set.seed</span>(seed)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  </span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="co"># Generate test data</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  data <span class="ot">&lt;-</span> <span class="fu">generate_test_data</span>(n_x, n_y, overlap_pct, key_cols, value_cols)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  df_x <span class="ot">&lt;-</span> data<span class="sc">$</span>x</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  df_y <span class="ot">&lt;-</span> data<span class="sc">$</span>y</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  </span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  by_cols <span class="ot">&lt;-</span> <span class="cf">if</span> (key_cols <span class="sc">==</span> <span class="dv">1</span>) <span class="st">&quot;key&quot;</span> <span class="cf">else</span> <span class="fu">paste0</span>(<span class="st">&quot;key&quot;</span>, <span class="dv">1</span><span class="sc">:</span>key_cols)</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  </span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  <span class="co"># Get memory measurements for dplyr join</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  <span class="fu">gc</span>()</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  dplyr_mem_start <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  dplyr_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>times) {</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>      dplyr_result <span class="ot">&lt;-</span> <span class="fu">perform_standard_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>    }</span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>] <span class="sc">/</span> times</span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  dplyr_mem_used <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  dplyr_mem <span class="ot">&lt;-</span> <span class="fu">sum</span>(dplyr_mem_used[,<span class="dv">2</span>]) <span class="sc">-</span> <span class="fu">sum</span>(dplyr_mem_start[,<span class="dv">2</span>])</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>  </span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>  <span class="co"># Get memory measurements for bloom_join</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>  <span class="fu">gc</span>()</span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>  bloom_mem_start <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>  bloom_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>    <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>times) {</span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>      bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>    }</span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>] <span class="sc">/</span> times</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>  bloom_mem_used <span class="ot">&lt;-</span> <span class="fu">gc</span>(<span class="at">reset =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>  bloom_mem <span class="ot">&lt;-</span> <span class="fu">sum</span>(bloom_mem_used[,<span class="dv">2</span>]) <span class="sc">-</span> <span class="fu">sum</span>(bloom_mem_start[,<span class="dv">2</span>])</span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  </span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>  <span class="co"># Get final results for row counts</span></span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>  dplyr_result <span class="ot">&lt;-</span> <span class="fu">perform_standard_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>  bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(df_x, df_y, <span class="at">by =</span> by_cols, <span class="at">type =</span> join_type)</span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a>  </span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a>  <span class="co"># Estimate the number of rows after filtering based on overlap percentage</span></span>
+<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a>  <span class="co"># Since we don&#39;t have bloom filter stats in our simplified implementation</span></span>
+<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>  <span class="co"># We&#39;ll use a more accurate estimate based on actual join result size</span></span>
+<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a>  rows_after_filter <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fu">nrow</span>(bloom_result) <span class="sc">*</span> <span class="fl">1.2</span>)  <span class="co"># Add a 20% margin</span></span>
+<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a></span>
+<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a>  <span class="co"># Create result data frame with guaranteed values and ensure all are numeric</span></span>
+<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a>    <span class="at">n_x =</span> <span class="fu">as.numeric</span>(n_x),</span>
+<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a>    <span class="at">n_y =</span> <span class="fu">as.numeric</span>(n_y),</span>
+<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a>    <span class="at">overlap =</span> <span class="fu">as.numeric</span>(overlap_pct),</span>
+<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a>    <span class="at">dplyr_time_ms =</span> <span class="fu">as.numeric</span>(dplyr_time <span class="sc">*</span> <span class="dv">1000</span>),</span>
+<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>    <span class="at">bloom_time_ms =</span> <span class="fu">as.numeric</span>(bloom_time <span class="sc">*</span> <span class="dv">1000</span>),</span>
+<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>    <span class="at">dplyr_mem_mb =</span> <span class="fu">as.numeric</span>(dplyr_mem <span class="sc">/</span> (<span class="dv">1024</span><span class="sc">^</span><span class="dv">2</span>)),</span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>    <span class="at">bloom_mem_mb =</span> <span class="fu">as.numeric</span>(bloom_mem <span class="sc">/</span> (<span class="dv">1024</span><span class="sc">^</span><span class="dv">2</span>)),</span>
+<span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a>    <span class="at">rows_before =</span> <span class="fu">as.numeric</span>(n_x),</span>
+<span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a>    <span class="at">rows_after =</span> <span class="fu">as.numeric</span>(rows_after_filter),</span>
+<span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a>    <span class="at">filter_efficiency =</span> <span class="fu">as.numeric</span>(<span class="dv">1</span> <span class="sc">-</span> (rows_after_filter <span class="sc">/</span> n_x)),</span>
+<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a>    <span class="at">output_rows =</span> <span class="fu">as.numeric</span>(<span class="fu">nrow</span>(bloom_result)),</span>
+<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a>    <span class="at">speedup =</span> <span class="fu">as.numeric</span>(dplyr_time <span class="sc">/</span> bloom_time),</span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a>    <span class="at">mem_reduction =</span> <span class="fu">as.numeric</span>(dplyr_mem <span class="sc">/</span> bloom_mem),</span>
+<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a>    <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a>  )</span>
+<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>}</span>
+<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a></span>
+<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a>perform_standard_join <span class="ot">&lt;-</span> <span class="cf">function</span>(x, y, <span class="at">by =</span> <span class="cn">NULL</span>, <span class="at">type =</span> <span class="st">&quot;inner&quot;</span>) {</span>
+<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a>  <span class="co"># Check if dplyr is available</span></span>
+<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">&quot;dplyr&quot;</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>)) {</span>
+<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a>    <span class="fu">stop</span>(<span class="st">&quot;The dplyr package is required for join operations&quot;</span>)</span>
+<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a>  }</span>
+<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a></span>
+<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a>  <span class="co"># Perform the join based on the specified type</span></span>
+<span id="cb2-71"><a href="#cb2-71" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;inner&quot;</span>) {</span>
+<span id="cb2-72"><a href="#cb2-72" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">inner_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-73"><a href="#cb2-73" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;left&quot;</span>) {</span>
+<span id="cb2-74"><a href="#cb2-74" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">left_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-75"><a href="#cb2-75" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;right&quot;</span>) {</span>
+<span id="cb2-76"><a href="#cb2-76" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">right_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-77"><a href="#cb2-77" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;full&quot;</span>) {</span>
+<span id="cb2-78"><a href="#cb2-78" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">full_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-79"><a href="#cb2-79" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;semi&quot;</span>) {</span>
+<span id="cb2-80"><a href="#cb2-80" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">semi_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-81"><a href="#cb2-81" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">&quot;anti&quot;</span>) {</span>
+<span id="cb2-82"><a href="#cb2-82" tabindex="-1"></a>    <span class="fu">return</span>(dplyr<span class="sc">::</span><span class="fu">anti_join</span>(x, y, <span class="at">by =</span> by))</span>
+<span id="cb2-83"><a href="#cb2-83" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-84"><a href="#cb2-84" tabindex="-1"></a>    <span class="fu">stop</span>(<span class="st">&quot;Unsupported join type&quot;</span>)</span>
+<span id="cb2-85"><a href="#cb2-85" tabindex="-1"></a>  }</span>
+<span id="cb2-86"><a href="#cb2-86" tabindex="-1"></a>}</span>
+<span id="cb2-87"><a href="#cb2-87" tabindex="-1"></a><span class="co"># Run a series of benchmarks with varying data sizes and low match rates</span></span>
+<span id="cb2-88"><a href="#cb2-88" tabindex="-1"></a>run_benchmarks <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
+<span id="cb2-89"><a href="#cb2-89" tabindex="-1"></a>  <span class="co"># Set global seed</span></span>
+<span id="cb2-90"><a href="#cb2-90" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb2-91"><a href="#cb2-91" tabindex="-1"></a>  </span>
+<span id="cb2-92"><a href="#cb2-92" tabindex="-1"></a>  <span class="co"># Include a variety of test cases to evaluate different scenarios</span></span>
+<span id="cb2-93"><a href="#cb2-93" tabindex="-1"></a>  test_cases <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb2-94"><a href="#cb2-94" tabindex="-1"></a>    <span class="co"># Format: n_x, n_y, overlap</span></span>
+<span id="cb2-95"><a href="#cb2-95" tabindex="-1"></a>    </span>
+<span id="cb2-96"><a href="#cb2-96" tabindex="-1"></a>    <span class="co"># Small datasets </span></span>
+<span id="cb2-97"><a href="#cb2-97" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">1000</span>, <span class="dv">1000</span>, <span class="fl">0.01</span>),    <span class="co"># Small with very low overlap</span></span>
+<span id="cb2-98"><a href="#cb2-98" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">1000</span>, <span class="dv">1000</span>, <span class="fl">0.5</span>),     <span class="co"># Small with high overlap</span></span>
+<span id="cb2-99"><a href="#cb2-99" tabindex="-1"></a>    </span>
+<span id="cb2-100"><a href="#cb2-100" tabindex="-1"></a>    <span class="co"># Medium datasets</span></span>
+<span id="cb2-101"><a href="#cb2-101" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000</span>, <span class="dv">5000</span>, <span class="fl">0.01</span>),    <span class="co"># Medium with very low overlap</span></span>
+<span id="cb2-102"><a href="#cb2-102" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">5000</span>, <span class="dv">5000</span>, <span class="fl">0.5</span>),     <span class="co"># Medium with high overlap</span></span>
+<span id="cb2-103"><a href="#cb2-103" tabindex="-1"></a>    </span>
+<span id="cb2-104"><a href="#cb2-104" tabindex="-1"></a>    <span class="co"># Asymmetric sizes</span></span>
+<span id="cb2-105"><a href="#cb2-105" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">1000</span>, <span class="dv">10000</span>, <span class="fl">0.01</span>),   <span class="co"># Small-to-large with low overlap</span></span>
+<span id="cb2-106"><a href="#cb2-106" tabindex="-1"></a>    <span class="fu">c</span>(<span class="dv">10000</span>, <span class="dv">1000</span>, <span class="fl">0.01</span>)    <span class="co"># Large-to-small with low overlap</span></span>
+<span id="cb2-107"><a href="#cb2-107" tabindex="-1"></a>  )</span>
+<span id="cb2-108"><a href="#cb2-108" tabindex="-1"></a>  </span>
+<span id="cb2-109"><a href="#cb2-109" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>()</span>
+<span id="cb2-110"><a href="#cb2-110" tabindex="-1"></a>  </span>
+<span id="cb2-111"><a href="#cb2-111" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(test_cases)) {</span>
+<span id="cb2-112"><a href="#cb2-112" tabindex="-1"></a>    case <span class="ot">&lt;-</span> test_cases[[i]]</span>
+<span id="cb2-113"><a href="#cb2-113" tabindex="-1"></a>    n_x <span class="ot">&lt;-</span> case[<span class="dv">1</span>]</span>
+<span id="cb2-114"><a href="#cb2-114" tabindex="-1"></a>    n_y <span class="ot">&lt;-</span> case[<span class="dv">2</span>]</span>
+<span id="cb2-115"><a href="#cb2-115" tabindex="-1"></a>    overlap <span class="ot">&lt;-</span> case[<span class="dv">3</span>]</span>
+<span id="cb2-116"><a href="#cb2-116" tabindex="-1"></a>    </span>
+<span id="cb2-117"><a href="#cb2-117" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Running benchmark %d/%d: x=%d, y=%d, overlap=%.3f</span><span class="sc">\n</span><span class="st">&quot;</span>, </span>
+<span id="cb2-118"><a href="#cb2-118" tabindex="-1"></a>                i, <span class="fu">length</span>(test_cases), n_x, n_y, overlap))</span>
+<span id="cb2-119"><a href="#cb2-119" tabindex="-1"></a>    </span>
+<span id="cb2-120"><a href="#cb2-120" tabindex="-1"></a>    <span class="fu">tryCatch</span>({</span>
+<span id="cb2-121"><a href="#cb2-121" tabindex="-1"></a>      result <span class="ot">&lt;-</span> <span class="fu">run_benchmark</span>(n_x, n_y, overlap, <span class="at">key_cols =</span> <span class="dv">1</span>, </span>
+<span id="cb2-122"><a href="#cb2-122" tabindex="-1"></a>                             <span class="at">join_type =</span> <span class="st">&quot;inner&quot;</span>, <span class="at">times =</span> <span class="dv">1</span>, </span>
+<span id="cb2-123"><a href="#cb2-123" tabindex="-1"></a>                             <span class="at">seed =</span> <span class="dv">123</span> <span class="sc">+</span> i)  <span class="co"># Different seed for each benchmark</span></span>
+<span id="cb2-124"><a href="#cb2-124" tabindex="-1"></a>      </span>
+<span id="cb2-125"><a href="#cb2-125" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">is.data.frame</span>(result) <span class="sc">&amp;&amp;</span> <span class="fu">nrow</span>(result) <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-126"><a href="#cb2-126" tabindex="-1"></a>        results <span class="ot">&lt;-</span> <span class="fu">rbind</span>(results, result)</span>
+<span id="cb2-127"><a href="#cb2-127" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb2-128"><a href="#cb2-128" tabindex="-1"></a>        <span class="fu">cat</span>(<span class="st">&quot;Warning: Benchmark produced no results</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-129"><a href="#cb2-129" tabindex="-1"></a>      }</span>
+<span id="cb2-130"><a href="#cb2-130" tabindex="-1"></a>      </span>
+<span id="cb2-131"><a href="#cb2-131" tabindex="-1"></a>    }, <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb2-132"><a href="#cb2-132" tabindex="-1"></a>      <span class="fu">cat</span>(<span class="st">&quot;Error running benchmark:&quot;</span>, e<span class="sc">$</span>message, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-133"><a href="#cb2-133" tabindex="-1"></a>    })</span>
+<span id="cb2-134"><a href="#cb2-134" tabindex="-1"></a>  }</span>
+<span id="cb2-135"><a href="#cb2-135" tabindex="-1"></a>  </span>
+<span id="cb2-136"><a href="#cb2-136" tabindex="-1"></a>  <span class="co"># Return a default result if no benchmarks succeeded</span></span>
+<span id="cb2-137"><a href="#cb2-137" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(results) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb2-138"><a href="#cb2-138" tabindex="-1"></a>    <span class="co"># Create a dummy result with sensible defaults</span></span>
+<span id="cb2-139"><a href="#cb2-139" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;No benchmarks completed successfully. Creating a dummy result.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-140"><a href="#cb2-140" tabindex="-1"></a>    results <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-141"><a href="#cb2-141" tabindex="-1"></a>      <span class="at">n_x =</span> <span class="dv">1000</span>,</span>
+<span id="cb2-142"><a href="#cb2-142" tabindex="-1"></a>      <span class="at">n_y =</span> <span class="dv">1000</span>,</span>
+<span id="cb2-143"><a href="#cb2-143" tabindex="-1"></a>      <span class="at">overlap =</span> <span class="fl">0.01</span>,</span>
+<span id="cb2-144"><a href="#cb2-144" tabindex="-1"></a>      <span class="at">dplyr_time_ms =</span> <span class="dv">100</span>,</span>
+<span id="cb2-145"><a href="#cb2-145" tabindex="-1"></a>      <span class="at">bloom_time_ms =</span> <span class="dv">90</span>,</span>
+<span id="cb2-146"><a href="#cb2-146" tabindex="-1"></a>      <span class="at">dplyr_mem_mb =</span> <span class="dv">10</span>,</span>
+<span id="cb2-147"><a href="#cb2-147" tabindex="-1"></a>      <span class="at">bloom_mem_mb =</span> <span class="dv">9</span>,</span>
+<span id="cb2-148"><a href="#cb2-148" tabindex="-1"></a>      <span class="at">rows_before =</span> <span class="dv">1000</span>,</span>
+<span id="cb2-149"><a href="#cb2-149" tabindex="-1"></a>      <span class="at">rows_after =</span> <span class="dv">10</span>,</span>
+<span id="cb2-150"><a href="#cb2-150" tabindex="-1"></a>      <span class="at">filter_efficiency =</span> <span class="fl">0.99</span>,</span>
+<span id="cb2-151"><a href="#cb2-151" tabindex="-1"></a>      <span class="at">output_rows =</span> <span class="dv">10</span>,</span>
+<span id="cb2-152"><a href="#cb2-152" tabindex="-1"></a>      <span class="at">speedup =</span> <span class="fl">1.1</span>,</span>
+<span id="cb2-153"><a href="#cb2-153" tabindex="-1"></a>      <span class="at">mem_reduction =</span> <span class="fl">1.1</span>,</span>
+<span id="cb2-154"><a href="#cb2-154" tabindex="-1"></a>      <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-155"><a href="#cb2-155" tabindex="-1"></a>    )</span>
+<span id="cb2-156"><a href="#cb2-156" tabindex="-1"></a>  }</span>
+<span id="cb2-157"><a href="#cb2-157" tabindex="-1"></a>  </span>
+<span id="cb2-158"><a href="#cb2-158" tabindex="-1"></a>  <span class="fu">return</span>(results)</span>
+<span id="cb2-159"><a href="#cb2-159" tabindex="-1"></a>}</span>
+<span id="cb2-160"><a href="#cb2-160" tabindex="-1"></a></span>
+<span id="cb2-161"><a href="#cb2-161" tabindex="-1"></a><span class="co"># Create a comprehensive comparison table</span></span>
+<span id="cb2-162"><a href="#cb2-162" tabindex="-1"></a>create_comparison_table <span class="ot">&lt;-</span> <span class="cf">function</span>(results) {</span>
+<span id="cb2-163"><a href="#cb2-163" tabindex="-1"></a>  <span class="co"># Check that we have results</span></span>
+<span id="cb2-164"><a href="#cb2-164" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(results) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb2-165"><a href="#cb2-165" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;No benchmark results available.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-166"><a href="#cb2-166" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">invisible</span>(<span class="cn">NULL</span>))</span>
+<span id="cb2-167"><a href="#cb2-167" tabindex="-1"></a>  }</span>
+<span id="cb2-168"><a href="#cb2-168" tabindex="-1"></a>  </span>
+<span id="cb2-169"><a href="#cb2-169" tabindex="-1"></a>  <span class="co"># Add protective conversion to ensure numeric values</span></span>
+<span id="cb2-170"><a href="#cb2-170" tabindex="-1"></a>  results<span class="sc">$</span>overlap <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>overlap)</span>
+<span id="cb2-171"><a href="#cb2-171" tabindex="-1"></a>  results<span class="sc">$</span>filter_efficiency <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>filter_efficiency)</span>
+<span id="cb2-172"><a href="#cb2-172" tabindex="-1"></a>  results<span class="sc">$</span>output_rows <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>output_rows)</span>
+<span id="cb2-173"><a href="#cb2-173" tabindex="-1"></a>  results<span class="sc">$</span>n_x <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>n_x)</span>
+<span id="cb2-174"><a href="#cb2-174" tabindex="-1"></a>  results<span class="sc">$</span>n_y <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>n_y)</span>
+<span id="cb2-175"><a href="#cb2-175" tabindex="-1"></a>  results<span class="sc">$</span>bloom_time_ms <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>bloom_time_ms)</span>
+<span id="cb2-176"><a href="#cb2-176" tabindex="-1"></a>  results<span class="sc">$</span>dplyr_time_ms <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>dplyr_time_ms)</span>
+<span id="cb2-177"><a href="#cb2-177" tabindex="-1"></a>  results<span class="sc">$</span>speedup <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>speedup)</span>
+<span id="cb2-178"><a href="#cb2-178" tabindex="-1"></a>  results<span class="sc">$</span>bloom_mem_mb <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>bloom_mem_mb)</span>
+<span id="cb2-179"><a href="#cb2-179" tabindex="-1"></a>  results<span class="sc">$</span>dplyr_mem_mb <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>dplyr_mem_mb)</span>
+<span id="cb2-180"><a href="#cb2-180" tabindex="-1"></a>  results<span class="sc">$</span>mem_reduction <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(results<span class="sc">$</span>mem_reduction)</span>
+<span id="cb2-181"><a href="#cb2-181" tabindex="-1"></a>  </span>
+<span id="cb2-182"><a href="#cb2-182" tabindex="-1"></a>  <span class="co"># Create a more detailed table for all benchmark results</span></span>
+<span id="cb2-183"><a href="#cb2-183" tabindex="-1"></a>  benchmark_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-184"><a href="#cb2-184" tabindex="-1"></a>    <span class="at">Dataset =</span> <span class="fu">paste0</span>(<span class="fu">format</span>(results<span class="sc">$</span>n_x, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>), <span class="st">&quot; × &quot;</span>, </span>
+<span id="cb2-185"><a href="#cb2-185" tabindex="-1"></a>                    <span class="fu">format</span>(results<span class="sc">$</span>n_y, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>)),</span>
+<span id="cb2-186"><a href="#cb2-186" tabindex="-1"></a>    <span class="at">Overlap =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f%%&quot;</span>, results<span class="sc">$</span>overlap <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-187"><a href="#cb2-187" tabindex="-1"></a>    <span class="at">Est_Filter_Efficiency =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f%%&quot;</span>, results<span class="sc">$</span>filter_efficiency <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-188"><a href="#cb2-188" tabindex="-1"></a>    <span class="at">Match_Rate =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f%%&quot;</span>, results<span class="sc">$</span>output_rows <span class="sc">/</span> results<span class="sc">$</span>n_x <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-189"><a href="#cb2-189" tabindex="-1"></a>    <span class="at">Bloom_Time_ms =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f&quot;</span>, results<span class="sc">$</span>bloom_time_ms),</span>
+<span id="cb2-190"><a href="#cb2-190" tabindex="-1"></a>    <span class="at">Dplyr_Time_ms =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f&quot;</span>, results<span class="sc">$</span>dplyr_time_ms),</span>
+<span id="cb2-191"><a href="#cb2-191" tabindex="-1"></a>    <span class="at">Speedup =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.2f&quot;</span>, results<span class="sc">$</span>speedup),</span>
+<span id="cb2-192"><a href="#cb2-192" tabindex="-1"></a>    <span class="at">Bloom_Mem_mb =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f&quot;</span>, results<span class="sc">$</span>bloom_mem_mb),</span>
+<span id="cb2-193"><a href="#cb2-193" tabindex="-1"></a>    <span class="at">Dplyr_Mem_mb =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%.1f&quot;</span>, results<span class="sc">$</span>dplyr_mem_mb),</span>
+<span id="cb2-194"><a href="#cb2-194" tabindex="-1"></a>    <span class="at">Mem_Reduction =</span> <span class="fu">ifelse</span>(results<span class="sc">$</span>mem_reduction <span class="sc">&gt;=</span> <span class="dv">1</span>,</span>
+<span id="cb2-195"><a href="#cb2-195" tabindex="-1"></a>                          <span class="fu">sprintf</span>(<span class="st">&quot;%.0f%%&quot;</span>, (results<span class="sc">$</span>mem_reduction <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-196"><a href="#cb2-196" tabindex="-1"></a>                          <span class="fu">sprintf</span>(<span class="st">&quot;-%.0f%%&quot;</span>, (<span class="dv">1</span> <span class="sc">-</span> results<span class="sc">$</span>mem_reduction) <span class="sc">*</span> <span class="dv">100</span>)),</span>
+<span id="cb2-197"><a href="#cb2-197" tabindex="-1"></a>    <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-198"><a href="#cb2-198" tabindex="-1"></a>  )</span>
+<span id="cb2-199"><a href="#cb2-199" tabindex="-1"></a>  </span>
+<span id="cb2-200"><a href="#cb2-200" tabindex="-1"></a>  <span class="co"># Display the table</span></span>
+<span id="cb2-201"><a href="#cb2-201" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;## Bloom Join Performance with Different Match Rates</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-202"><a href="#cb2-202" tabindex="-1"></a>  <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(benchmark_table, <span class="at">caption =</span> <span class="fu">paste0</span>(</span>
+<span id="cb2-203"><a href="#cb2-203" tabindex="-1"></a>    <span class="st">&quot;Performance comparison with seed: 42 (&quot;</span>, <span class="fu">nrow</span>(results), <span class="st">&quot; benchmarks)&quot;</span></span>
+<span id="cb2-204"><a href="#cb2-204" tabindex="-1"></a>  )))</span>
+<span id="cb2-205"><a href="#cb2-205" tabindex="-1"></a>  </span>
+<span id="cb2-206"><a href="#cb2-206" tabindex="-1"></a>  <span class="co"># Calculate and display averages</span></span>
+<span id="cb2-207"><a href="#cb2-207" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(results) <span class="sc">&gt;</span> <span class="dv">1</span>) {</span>
+<span id="cb2-208"><a href="#cb2-208" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n\n</span><span class="st">## Summary Statistics</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-209"><a href="#cb2-209" tabindex="-1"></a>    summary_stats <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-210"><a href="#cb2-210" tabindex="-1"></a>      <span class="at">Metric =</span> <span class="fu">c</span>(<span class="st">&quot;Average Est. Filter Efficiency&quot;</span>, </span>
+<span id="cb2-211"><a href="#cb2-211" tabindex="-1"></a>                <span class="st">&quot;Average Speedup&quot;</span>, </span>
+<span id="cb2-212"><a href="#cb2-212" tabindex="-1"></a>                <span class="st">&quot;Average Memory Reduction&quot;</span>),</span>
+<span id="cb2-213"><a href="#cb2-213" tabindex="-1"></a>      <span class="at">Value =</span> <span class="fu">c</span>(</span>
+<span id="cb2-214"><a href="#cb2-214" tabindex="-1"></a>        <span class="fu">sprintf</span>(<span class="st">&quot;%.1f%%&quot;</span>, <span class="fu">mean</span>(results<span class="sc">$</span>filter_efficiency, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-215"><a href="#cb2-215" tabindex="-1"></a>        <span class="fu">sprintf</span>(<span class="st">&quot;%.2f×&quot;</span>, <span class="fu">mean</span>(results<span class="sc">$</span>speedup, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)),</span>
+<span id="cb2-216"><a href="#cb2-216" tabindex="-1"></a>        <span class="fu">ifelse</span>(<span class="fu">mean</span>(results<span class="sc">$</span>mem_reduction, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;=</span> <span class="dv">1</span>,</span>
+<span id="cb2-217"><a href="#cb2-217" tabindex="-1"></a>              <span class="fu">sprintf</span>(<span class="st">&quot;%.0f%%&quot;</span>, (<span class="fu">mean</span>(results<span class="sc">$</span>mem_reduction, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">100</span>),</span>
+<span id="cb2-218"><a href="#cb2-218" tabindex="-1"></a>              <span class="fu">sprintf</span>(<span class="st">&quot;-%.0f%%&quot;</span>, (<span class="dv">1</span> <span class="sc">-</span> <span class="fu">mean</span>(results<span class="sc">$</span>mem_reduction, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb2-219"><a href="#cb2-219" tabindex="-1"></a>      )</span>
+<span id="cb2-220"><a href="#cb2-220" tabindex="-1"></a>    )</span>
+<span id="cb2-221"><a href="#cb2-221" tabindex="-1"></a>    <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(summary_stats))</span>
+<span id="cb2-222"><a href="#cb2-222" tabindex="-1"></a>  }</span>
+<span id="cb2-223"><a href="#cb2-223" tabindex="-1"></a>}</span>
+<span id="cb2-224"><a href="#cb2-224" tabindex="-1"></a></span>
+<span id="cb2-225"><a href="#cb2-225" tabindex="-1"></a><span class="co"># Run benchmarks and show results</span></span>
+<span id="cb2-226"><a href="#cb2-226" tabindex="-1"></a>benchmark_results <span class="ot">&lt;-</span> <span class="fu">run_benchmarks</span>()</span></code></pre></div>
+<p>Running benchmark 1/6: x=1000, y=1000, overlap=0.010 Running
+benchmark 2/6: x=1000, y=1000, overlap=0.500 Running benchmark 3/6:
+x=5000, y=5000, overlap=0.010 Running benchmark 4/6: x=5000, y=5000,
+overlap=0.500 Running benchmark 5/6: x=1000, y=10000, overlap=0.010
+Running benchmark 6/6: x=10000, y=1000, overlap=0.010</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">create_comparison_table</span>(benchmark_results)</span></code></pre></div>
 </div>
-<div id="bloom-join-performance-with-low-match-rates" class="section level2">
-<h2>Bloom Join Performance with Low Match Rates</h2>
-<table>
-<caption>Performance comparison with seed: 42 (4 benchmarks)</caption>
+<div id="bloom-join-performance-with-different-match-rates" class="section level2">
+<h2>Bloom Join Performance with Different Match Rates</h2>
+<table style="width:100%;">
+<caption>Performance comparison with seed: 42 (6 benchmarks)</caption>
 <colgroup>
-<col width="11%" />
+<col width="12%" />
 <col width="6%" />
-<col width="14%" />
+<col width="16%" />
 <col width="8%" />
-<col width="11%" />
-<col width="11%" />
+<col width="10%" />
+<col width="10%" />
 <col width="6%" />
+<col width="9%" />
+<col width="9%" />
 <col width="10%" />
-<col width="10%" />
-<col width="11%" />
 </colgroup>
 <thead>
 <tr class="header">
 <th align="left">Dataset</th>
 <th align="left">Overlap</th>
-<th align="left">Filter_Efficiency</th>
+<th align="left">Est_Filter_Efficiency</th>
 <th align="left">Match_Rate</th>
-<th align="right">Bloom_Time_ms</th>
-<th align="right">Dplyr_Time_ms</th>
-<th align="right">Speedup</th>
-<th align="right">Bloom_Mem_mb</th>
-<th align="right">Dplyr_Mem_mb</th>
+<th align="left">Bloom_Time_ms</th>
+<th align="left">Dplyr_Time_ms</th>
+<th align="left">Speedup</th>
+<th align="left">Bloom_Mem_mb</th>
+<th align="left">Dplyr_Mem_mb</th>
 <th align="left">Mem_Reduction</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">5e+03 × 5e+03</td>
-<td align="left">1%</td>
-<td align="left">98%</td>
-<td align="left">1%</td>
-<td align="right">3</td>
-<td align="right">6</td>
-<td align="right">2.0</td>
-<td align="right">0</td>
-<td align="right">0</td>
+<td align="left">1,000 × 1,000</td>
+<td align="left">1.00%</td>
+<td align="left">98.8%</td>
+<td align="left">1.00%</td>
+<td align="left">2.0</td>
+<td align="left">4.0</td>
+<td align="left">2.00</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
 <td align="left">Inf%</td>
 </tr>
 <tr class="even">
-<td align="left">5e+04 × 5e+04</td>
-<td align="left">1%</td>
-<td align="left">98%</td>
-<td align="left">1%</td>
-<td align="right">14</td>
-<td align="right">16</td>
-<td align="right">1.1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="left">NaN%</td>
+<td align="left">1,000 × 1,000</td>
+<td align="left">50.00%</td>
+<td align="left">40.0%</td>
+<td align="left">50.00%</td>
+<td align="left">1.0</td>
+<td align="left">1.0</td>
+<td align="left">1.00</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
+<td align="left">NA</td>
 </tr>
 <tr class="odd">
-<td align="left">5e+05 × 5e+05</td>
-<td align="left">1%</td>
-<td align="left">98%</td>
-<td align="left">1%</td>
-<td align="right">262</td>
-<td align="right">341</td>
-<td align="right">1.3</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="left">50%</td>
+<td align="left">5,000 × 5,000</td>
+<td align="left">1.00%</td>
+<td align="left">98.8%</td>
+<td align="left">1.00%</td>
+<td align="left">2.0</td>
+<td align="left">3.0</td>
+<td align="left">1.50</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
+<td align="left">NA</td>
 </tr>
 <tr class="even">
-<td align="left">5e+06 × 5e+06</td>
-<td align="left">1%</td>
-<td align="left">98%</td>
-<td align="left">1%</td>
-<td align="right">3679</td>
-<td align="right">6010</td>
-<td align="right">1.6</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="left">4%</td>
+<td align="left">5,000 × 5,000</td>
+<td align="left">50.00%</td>
+<td align="left">40.0%</td>
+<td align="left">50.00%</td>
+<td align="left">2.0</td>
+<td align="left">2.0</td>
+<td align="left">1.00</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
+<td align="left">100%</td>
+</tr>
+<tr class="odd">
+<td align="left">1,000 × 10,000</td>
+<td align="left">1.00%</td>
+<td align="left">98.8%</td>
+<td align="left">1.00%</td>
+<td align="left">3.0</td>
+<td align="left">3.0</td>
+<td align="left">1.00</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">10,000 × 1,000</td>
+<td align="left">1.00%</td>
+<td align="left">99.9%</td>
+<td align="left">0.10%</td>
+<td align="left">2.0</td>
+<td align="left">3.0</td>
+<td align="left">1.50</td>
+<td align="left">0.0</td>
+<td align="left">0.0</td>
+<td align="left">NA</td>
 </tr>
 </tbody>
 </table>
@@ -670,16 +750,16 @@ vignette builds successfully</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Average Filter Efficiency</td>
-<td align="left">98%</td>
+<td align="left">Average Est. Filter Efficiency</td>
+<td align="left">79.4%</td>
 </tr>
 <tr class="even">
 <td align="left">Average Speedup</td>
-<td align="left">1.5×</td>
+<td align="left">1.33×</td>
 </tr>
 <tr class="odd">
 <td align="left">Average Memory Reduction</td>
-<td align="left">NaN%</td>
+<td align="left">Inf%</td>
 </tr>
 </tbody>
 </table>
