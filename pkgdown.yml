@@ -3,7 +3,7 @@ pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
   benchmarking-bloomjoin: benchmarking-bloomjoin.html
-last_built: 2025-04-01T19:20Z
+last_built: 2025-04-01T19:34Z
 urls:
   reference: https://soodoku.github.io/bloomjoin/reference
   article: https://soodoku.github.io/bloomjoin/articles
