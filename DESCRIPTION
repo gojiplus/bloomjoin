@@ -12,15 +12,14 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
     dplyr,
-    Rcpp (>= 1.0.0),
-    rlang,
-    readr,
-    ggplot2,
-    microbenchmark
+    Rcpp (>= 1.0.0)
 LinkingTo: Rcpp
 Suggests: 
     testthat (>= 3.0.0),
+    rlang,
+    tidyverse,
     tidyr,
+    readr,
     tibble,
     rmarkdown,
     hms,
@@ -30,6 +29,7 @@ Suggests:
     kableExtra,
     reshape2,
     data.table,
-    tidyverse
+    ggplot2,
+    microbenchmark
 Config/testthat/edition: 3
 VignetteBuilder: knitr

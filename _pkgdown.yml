@@ -1,0 +1,36 @@
+
+url: https://soodoku.github.io/bloomjoin/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, tutorials, news]
+    right: [github]
+  components:
+    home: ~
+    reference:
+      text: Reference
+      href: reference/index.html
+    articles:
+      text: Articles
+      menu:
+      - text: Benchmarking BloomJoin
+        href: articles/benchmarking-bloomjoin.html
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/soodoku/bloomjoin
+
+reference:
+- title: "BloomJoin Functions"
+  desc: >
+    Core functionality of the package
+  contents:
+    - bloomjoin
+    - starts_with("bloom_")
+- title: "Helper Functions"
+  desc: "Supporting functions"
+  contents:
+    - matches(".*")

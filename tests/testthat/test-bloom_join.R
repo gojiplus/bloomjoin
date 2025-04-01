@@ -1,4 +1,4 @@
-# Fixed test file for BloomJoin package
+# Simplified test file for BloomJoin package
 # tests/testthat/test-bloom_join.R
 
 library(testthat)
@@ -19,7 +19,7 @@ test_that("bloom_join produces same results as standard joins", {
   )
 
   # Test inner join
-  inner_result_bloom <- bloom_join(x, y, by = "id", type = "inner", verbose = FALSE)
+  inner_result_bloom <- bloom_join(x, y, by = "id", type = "inner")
   inner_result_std <- inner_join(x, y, by = "id")
   expect_equal(nrow(inner_result_bloom), nrow(inner_result_std))
   expect_equal(sort(inner_result_bloom$id), sort(inner_result_std$id))
@@ -27,7 +27,7 @@ test_that("bloom_join produces same results as standard joins", {
 
   # Test left join - suppress the warning for the test
   suppressWarnings({
-    left_result_bloom <- bloom_join(x, y, by = "id", type = "left", verbose = FALSE)
+    left_result_bloom <- bloom_join(x, y, by = "id", type = "left")
   })
   left_result_std <- left_join(x, y, by = "id")
   expect_equal(nrow(left_result_bloom), nrow(left_result_std))
@@ -35,7 +35,7 @@ test_that("bloom_join produces same results as standard joins", {
   expect_equal(ncol(left_result_bloom), ncol(left_result_std))
 
   # Test semi join
-  semi_result_bloom <- bloom_join(x, y, by = "id", type = "semi", verbose = FALSE)
+  semi_result_bloom <- bloom_join(x, y, by = "id", type = "semi")
   semi_result_std <- semi_join(x, y, by = "id")
   expect_equal(nrow(semi_result_bloom), nrow(semi_result_std))
   expect_equal(sort(semi_result_bloom$id), sort(semi_result_std$id))
@@ -58,7 +58,7 @@ test_that("bloom_join works with multiple join columns", {
   )
 
   # Test inner join with multiple columns
-  result_bloom <- bloom_join(x, y, by = c("id1", "id2"), verbose = FALSE)
+  result_bloom <- bloom_join(x, y, by = c("id1", "id2"))
   result_std <- inner_join(x, y, by = c("id1", "id2"))
 
   expect_equal(nrow(result_bloom), nrow(result_std))
@@ -80,7 +80,7 @@ test_that("bloom_join handles no overlap correctly", {
   )
 
   # Test inner join
-  inner_result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+  inner_result_bloom <- bloom_join(x, y, by = "id")
   inner_result_std <- inner_join(x, y, by = "id")
 
   expect_equal(nrow(inner_result_bloom), 0)
@@ -88,7 +88,7 @@ test_that("bloom_join handles no overlap correctly", {
 
   # Test left join - suppress warning
   suppressWarnings({
-    left_result_bloom <- bloom_join(x, y, by = "id", type = "left", verbose = FALSE)
+    left_result_bloom <- bloom_join(x, y, by = "id", type = "left")
   })
   left_result_std <- left_join(x, y, by = "id")
 
@@ -111,7 +111,7 @@ test_that("bloom_join handles complete overlap correctly", {
   )
 
   # Test inner join
-  inner_result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+  inner_result_bloom <- bloom_join(x, y, by = "id")
   inner_result_std <- inner_join(x, y, by = "id")
 
   expect_equal(nrow(inner_result_bloom), 100)
@@ -132,7 +132,7 @@ test_that("bloom_join works with character columns", {
   )
 
   # Test join
-  result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+  result_bloom <- bloom_join(x, y, by = "id")
   result_std <- inner_join(x, y, by = "id")
 
   expect_equal(nrow(result_bloom), nrow(result_std))
@@ -152,8 +152,8 @@ test_that("bloom_join handles different column names correctly", {
     value_y = rnorm(101)
   )
 
-  # Test join with named vector in by - FIX: use character name format
-  result_bloom <- bloom_join(x, y, by = c("id_x" = "id_y"), verbose = FALSE)
+  # Test join with named vector in by
+  result_bloom <- bloom_join(x, y, by = c("id_x" = "id_y"))
   result_std <- inner_join(x, y, by = c("id_x" = "id_y"))
 
   expect_equal(nrow(result_bloom), nrow(result_std))
@@ -194,7 +194,7 @@ test_that("bloom_join handles duplicated keys correctly", {
 
   # Cartesian product expected for duplicated keys
   suppressWarnings({
-    result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+    result_bloom <- bloom_join(x, y, by = "id")
     result_std <- inner_join(x, y, by = "id")
   })
 
@@ -218,51 +218,12 @@ test_that("bloom_join handles NA values in join columns", {
 
   # Test join - suppress warnings about many-to-many joins with NA values
   suppressWarnings({
-    result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+    result_bloom <- bloom_join(x, y, by = "id")
     result_std <- inner_join(x, y, by = "id")
   })
 
   expect_equal(nrow(result_bloom), nrow(result_std))
   expect_equal(sort(result_bloom$id, na.last = TRUE), sort(result_std$id, na.last = TRUE))
-})
-
-# Test performance characteristics (basic) - make the test more lenient
-test_that("bloom_join performance improves with larger datasets and low overlap", {
-  skip_if_not(interactive(), "Skipping performance test in non-interactive mode")
-  skip("Skipping performance test as it's dependent on machine capabilities")
-
-  # Create large dataset with low overlap
-  n_x <- 100000
-  n_y <- 1000
-  overlap <- 0.1
-
-  # Number of overlapping keys
-  n_overlap <- round(min(n_x, n_y) * overlap)
-
-  # Generate keys
-  keys_x <- sample(1:(n_x * 10), n_x)
-  keys_y <- c(sample(keys_x, n_overlap), sample(setdiff(1:(n_y * 10), keys_x), n_y - n_overlap))
-
-  # Create data frames
-  x <- tibble(
-    key = keys_x,
-    value_x = rnorm(n_x)
-  )
-
-  y <- tibble(
-    key = keys_y,
-    value_y = rnorm(n_y)
-  )
-
-  # Measure time
-  bloom_time <- system.time(bloom_join(x, y, by = "key", verbose = FALSE))
-  std_time <- system.time(inner_join(x, y, by = "key"))
-
-  # Performance may vary by machine, so don't make a strict assertion
-  # Just check that we get the same result
-  bloom_result <- bloom_join(x, y, by = "key", verbose = FALSE)
-  std_result <- inner_join(x, y, by = "key")
-  expect_equal(nrow(bloom_result), nrow(std_result))
 })
 
 # Test with different bloom_size parameters
@@ -279,13 +240,13 @@ test_that("bloom_join works with custom bloom_size parameter", {
   )
 
   # Test with smaller bloom size
-  result_small <- bloom_join(x, y, by = "id", bloom_size = 100, verbose = FALSE)
+  result_small <- bloom_join(x, y, by = "id", bloom_size = 100)
 
   # Test with larger bloom size
-  result_large <- bloom_join(x, y, by = "id", bloom_size = 10000, verbose = FALSE)
+  result_large <- bloom_join(x, y, by = "id", bloom_size = 10000)
 
   # Test with default bloom size
-  result_default <- bloom_join(x, y, by = "id", verbose = FALSE)
+  result_default <- bloom_join(x, y, by = "id")
 
   # All should produce the same result
   expect_equal(nrow(result_small), nrow(result_default))
@@ -299,16 +260,16 @@ test_that("bloom_join works with very small datasets", {
   x <- tibble(id = 1:3, value_x = rnorm(3))
   y <- tibble(id = 2:4, value_y = rnorm(3))
 
-  result_bloom <- bloom_join(x, y, by = "id", verbose = FALSE)
+  result_bloom <- bloom_join(x, y, by = "id")
   result_std <- inner_join(x, y, by = "id")
 
   expect_equal(nrow(result_bloom), nrow(result_std))
   expect_equal(sort(result_bloom$id), sort(result_std$id))
 })
 
-# Test automatic determination of join columns - fix the data creation
+# Test automatic determination of join columns
 test_that("bloom_join automatically determines join columns correctly", {
-  # Create test data with common columns - fix the sizes to match
+  # Create test data with common columns
   x <- tibble(
     id = 1:100,
     common = rep(1:10, 10),
@@ -323,10 +284,10 @@ test_that("bloom_join automatically determines join columns correctly", {
   )
 
   # Test with automatic column detection
-  result_auto <- bloom_join(x, y, verbose = FALSE)
+  result_auto <- bloom_join(x, y)
 
   # Test with explicit column specification
-  result_explicit <- bloom_join(x, y, by = c("id", "common"), verbose = FALSE)
+  result_explicit <- bloom_join(x, y, by = c("id", "common"))
 
   # Should produce the same result
   expect_equal(nrow(result_auto), nrow(result_explicit))
@@ -337,51 +298,14 @@ test_that("bloom_join automatically determines join columns correctly", {
   expect_equal(nrow(result_auto), nrow(result_std))
 })
 
-# Test verbose output - fix the test to use capture.output
-test_that("bloom_join verbose parameter works", {
+# Test class assignment
+test_that("bloom_join adds bloomjoin class to result", {
   # Create test data
   x <- tibble(id = 1:100, value_x = rnorm(100))
   y <- tibble(id = 50:150, value_y = rnorm(101))
 
-  # Capture output with verbose=TRUE
-  # Use capture.output to get message output
-  output <- capture.output({
-    result <- bloom_join(x, y, verbose = TRUE)
-  }, type = "message")
-
-  # Check that we get some output
-  expect_true(length(output) > 0)
-  expect_true(any(grepl("Filter created in", output)))
-
-  # No output with verbose=FALSE
-  # Use capture.output to confirm no messages
-  silent_output <- capture.output({
-    suppressMessages(bloom_join(x, y, verbose = FALSE))
-  }, type = "message")
-
-  expect_equal(length(silent_output), 0)
-})
-
-# Test attributes in the result
-test_that("bloom_join adds appropriate attributes to result", {
-  # Create test data
-  x <- tibble(id = 1:100, value_x = rnorm(100))
-  y <- tibble(id = 50:150, value_y = rnorm(101))
-
-  result <- bloom_join(x, y, verbose = FALSE)
+  result <- bloom_join(x, y)
 
   # Check class
   expect_true("bloomjoin" %in% class(result))
-
-  # Check bloom filter stats attribute
-  expect_true(!is.null(attr(result, "bloom_filter_stats")))
-  stats <- attr(result, "bloom_filter_stats")
-
-  expect_equal(stats$original_rows, 100)
-  expect_equal(stats$filtered_rows, 51)  # Only rows with id in 50:100 should remain
-  expect_true(stats$reduction_percent > 0)
-  expect_true(stats$filter_creation_time > 0)
-  expect_true(stats$filtering_time > 0)
-  expect_true(stats$join_time > 0)
-  expect_true(stats$total_time > 0)
 })

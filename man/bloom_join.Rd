@@ -10,8 +10,7 @@ bloom_join(
   by = NULL,
   type = "inner",
   bloom_size = NULL,
-  false_positive_rate = 0.01,
-  verbose = TRUE
+  false_positive_rate = 0.01
 )
 }
 \arguments{
@@ -26,11 +25,9 @@ bloom_join(
 \item{bloom_size}{Size of the Bloom filter. If NULL, will be automatically calculated}
 
 \item{false_positive_rate}{False positive rate for the Bloom filter (default: 0.01)}
-
-\item{verbose}{Whether to print progress messages}
 }
 \value{
-A joined data frame with a class of "bloomjoin" and additional attributes
+A joined data frame with a class of "bloomjoin"
 }
 \description{
 This function uses a high-performance Rcpp implementation of Bloom filters to efficiently join
