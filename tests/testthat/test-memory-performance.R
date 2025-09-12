@@ -57,7 +57,7 @@ test_that("memory usage is reasonable for large datasets", {
   )
   
   # Measure memory usage
-  bloom_mem <- measure_memory(bloom_join(large_df, small_df, by = "id"))
+  bloom_mem <- measure_memory(bloom_join(large_df, small_df, by = "id", verbose = TRUE))
   std_mem <- measure_memory(inner_join(large_df, small_df, by = "id"))
   
   # Results should be identical
@@ -98,7 +98,7 @@ test_that("performance scales well with dataset size", {
     )
     
     # Time operations
-    bloom_timing <- time_operation(bloom_join(large_df, small_df, by = "id"))
+    bloom_timing <- time_operation(bloom_join(large_df, small_df, by = "id", verbose = TRUE))
     std_timing <- time_operation(inner_join(large_df, small_df, by = "id"))
     
     # Get metadata
@@ -150,7 +150,7 @@ test_that("bloom filter parameters affect performance predictably", {
   )
   
   for (fpr in fpr_values) {
-    timing <- time_operation(bloom_join(large_df, small_df, by = "id", false_positive_rate = fpr))
+    timing <- time_operation(bloom_join(large_df, small_df, by = "id", false_positive_rate = fpr, verbose = TRUE))
     metadata <- attr(timing$result, "bloom_metadata")
     
     fpr_results <- rbind(fpr_results, data.frame(
@@ -185,7 +185,7 @@ test_that("multi-column joins performance is acceptable", {
   )
   
   # Time multi-column joins
-  bloom_timing <- time_operation(bloom_join(df1, df2, by = c("key1", "key2")))
+  bloom_timing <- time_operation(bloom_join(df1, df2, by = c("key1", "key2"), verbose = TRUE))
   std_timing <- time_operation(suppressWarnings(inner_join(df1, df2, by = c("key1", "key2"))))
   
   metadata <- attr(bloom_timing$result, "bloom_metadata")
@@ -228,7 +228,7 @@ test_that("join type performance characteristics", {
   
   for (join_type in join_types) {
     # Bloom join
-    bloom_timing <- time_operation(bloom_join(df_large, df_small, by = "id", type = join_type))
+    bloom_timing <- time_operation(bloom_join(df_large, df_small, by = "id", type = join_type, verbose = TRUE))
     
     # Standard join
     std_expr <- switch(join_type,

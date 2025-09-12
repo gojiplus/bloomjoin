@@ -5,6 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Testing
+- **IMPORTANT**: Run `source("fix_exports.R")` before `devtools::load_all()` to fix RcppExports.cpp include issue
+- `devtools::load_all()` - Load package for testing (run fix_exports.R first)
 - `devtools::test()` or `testthat::test_check("bloomjoin")` - Run all tests
 - Test files are in `tests/testthat/` with the main test file being `test-bloom_join.R`
 

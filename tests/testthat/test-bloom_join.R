@@ -305,6 +305,12 @@ test_that("bloom_join produces identical results to dplyr joins", {
   bloom_result <- bloom_join(x, y)
   dplyr_result <- inner_join(x, y, by = "id")
 
-  # Should produce identical results
-  expect_identical(bloom_result, dplyr_result)
+  # Should produce identical results (except for class)
+  # Remove the bloomjoin class for comparison
+  bloom_result_no_class <- bloom_result
+  class(bloom_result_no_class) <- class(dplyr_result)
+  expect_identical(bloom_result_no_class, dplyr_result)
+  
+  # Verify that bloomjoin class is present
+  expect_true("bloomjoin" %in% class(bloom_result))
 })

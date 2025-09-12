@@ -48,7 +48,9 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   
   # Early exit for special cases
   if (join_params$should_skip_bloom) {
-    return(join_params$result)
+    result <- join_params$result
+    class(result) <- c("bloomjoin", class(result))
+    return(result)
   }
   
   # Extract prepared parameters
@@ -79,6 +81,7 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     }
     
     result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
+    class(result) <- c("bloomjoin", class(result))
     return(result)
   }
 
@@ -98,6 +101,8 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
       message("Note: ANTI join performed - Bloom filters cannot provide pre-filtering benefits due to false positives")
       message(sprintf("Bloom join completed in %.3f seconds", elapsed))
     }
+    
+    class(result) <- c("bloomjoin", class(result))
     
     # Only add metadata for anti-joins if verbose mode is enabled
     if (verbose) {
@@ -213,6 +218,9 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     elapsed <- as.numeric(end_time - start_time, units = "secs")
     message(sprintf("Bloom join completed in %.3f seconds", elapsed))
   }
+  
+  # Add bloomjoin class
+  class(result) <- c("bloomjoin", class(result))
   
   # Only add metadata if verbose mode is enabled - to match dplyr output exactly
   if (verbose) {
