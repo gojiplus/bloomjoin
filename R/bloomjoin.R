@@ -188,8 +188,8 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     result[temp_join_cols] <- NULL
   }
   
-  # Remove composite key columns if they exist in the result
-  composite_cols <- names(result)[grepl("^\\.composite_key", names(result))]
+  # Remove composite key columns if they exist in the result (including suffixed versions)
+  composite_cols <- names(result)[grepl("\\.composite_key", names(result))]
   if (length(composite_cols) > 0) {
     result[composite_cols] <- NULL
   }
