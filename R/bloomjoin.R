@@ -71,6 +71,13 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     if (verbose) {
       message("Small dataset detected - using standard join for better performance")
     }
+    
+    # Clean up composite keys if they were created
+    if (join_col == ".composite_key") {
+      x[".composite_key"] <- NULL
+      y[".composite_key"] <- NULL
+    }
+    
     result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
     return(result)
   }
@@ -188,10 +195,15 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     result[temp_join_cols] <- NULL
   }
   
-  # Remove composite key columns if they exist in the result (including suffixed versions)
-  composite_cols <- names(result)[grepl("\\.composite_key", names(result))]
+  # Remove any composite key columns that may have leaked through (including suffixed versions)
+  composite_cols <- names(result)[grepl("composite_key", names(result))]
   if (length(composite_cols) > 0) {
-    result[composite_cols] <- NULL
+    if (verbose) {
+      message("Found composite key columns to remove: ", paste(composite_cols, collapse = ", "))
+    }
+    for (col in composite_cols) {
+      result[[col]] <- NULL
+    }
   }
 
   # Keep result as standard data frame to match dplyr output exactly
