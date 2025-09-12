@@ -22,6 +22,8 @@ Suggests:
     testthat (>= 3.0.0),
     tibble,
     rmarkdown,
-    knitr (>= 1.11)
+    knitr (>= 1.11),
+    microbenchmark,
+    ggplot2
 Config/testthat/edition: 3
 VignetteBuilder: knitr

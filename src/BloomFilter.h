@@ -38,8 +38,14 @@ public:
   // Check if an element might be in the filter
   bool contains(const std::string& key) const;
   
+  // Optimized contains for string views (avoids string copy)
+  bool contains_fast(const char* key, size_t length) const;
+  
   // Add multiple elements efficiently
   void add_batch(const std::vector<std::string>& keys);
+  
+  // Reserve capacity for better performance
+  void reserve(size_t expected_elements);
   
   // Get the size of the filter
   size_t size() const;

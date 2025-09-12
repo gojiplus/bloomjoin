@@ -42,81 +42,26 @@
 #' result <- bloom_join(x, y, by = "id")
 bloom_join <- function(x, y, by = NULL, type = "inner",
                        bloom_size = NULL, false_positive_rate = 0.01, verbose = FALSE) {
-  # Enhanced input validation
-  if (!is.data.frame(x) || !is.data.frame(y)) {
-    stop("Both x and y must be data frames")
+  
+  # Validate inputs and prepare join parameters
+  join_params <- validate_and_prepare_join(x, y, by, type, false_positive_rate, verbose)
+  
+  # Early exit for special cases
+  if (join_params$should_skip_bloom) {
+    return(join_params$result)
   }
   
-  if (nrow(x) == 0 || nrow(y) == 0) {
-    warning("One or both data frames are empty")
-    return(perform_standard_join(x, y, by, type))
-  }
-  
-  if (!type %in% c("inner", "left", "right", "full", "semi", "anti")) {
-    stop("Invalid join type. Must be one of: inner, left, right, full, semi, anti")
-  }
-  
-  if (false_positive_rate <= 0 || false_positive_rate >= 1) {
-    stop("false_positive_rate must be between 0 and 1 (exclusive)")
-  }
+  # Extract prepared parameters
+  x <- join_params$x
+  y <- join_params$y
+  by <- join_params$by
+  join_col <- join_params$join_col
+  temp_join_cols <- join_params$temp_join_cols
+  orig_by <- join_params$orig_by
   
   start_time <- if (verbose) Sys.time() else NULL
 
-  # Determine the join columns
-  if (is.null(by)) {
-    by <- intersect(names(x), names(y))
-    if (length(by) == 0) {
-      stop("No common variables in x and y to join by")
-    }
-  } else if (is.character(by)) {
-    # Handle named vectors correctly
-    if (!is.null(names(by)) && any(names(by) != "")) {
-      # Named vector case (different column names)
-      x_cols <- names(by)
-      y_cols <- unname(by)
-
-      # Check if join columns exist in respective data frames
-      if (!all(x_cols %in% names(x))) {
-        stop("Not all join columns found in x")
-      }
-      if (!all(y_cols %in% names(y))) {
-        stop("Not all join columns found in y")
-      }
-
-      # Create temporary columns for joining
-      for (i in seq_along(by)) {
-        x_col <- x_cols[i]
-        y_col <- y_cols[i]
-        x[[paste0(".temp_join_", i)]] <- x[[x_col]]
-        y[[paste0(".temp_join_", i)]] <- y[[y_col]]
-      }
-
-      # Set join columns to temporary ones
-      temp_join_cols <- paste0(".temp_join_", seq_along(by))
-      orig_by <- by  # Save original for final join
-      by <- temp_join_cols
-    } else {
-      # Unnamed vector case (same column names)
-      # Check if all join columns exist in both data frames
-      if (!all(by %in% names(x))) {
-        stop("Not all join columns found in x")
-      }
-      if (!all(by %in% names(y))) {
-        stop("Not all join columns found in y")
-      }
-    }
-  } else {
-    stop("'by' must be NULL or a character vector")
-  }
-
-  # For multiple join columns, create a composite key
-  if (length(by) > 1) {
-    x$.composite_key <- do.call(paste, c(lapply(by, function(col) x[[col]]), sep = "___"))
-    y$.composite_key <- do.call(paste, c(lapply(by, function(col) y[[col]]), sep = "___"))
-    join_col <- ".composite_key"
-  } else {
-    join_col <- by
-  }
+  # Join column preparation is now handled in validate_and_prepare_join
 
   # Always use Bloom filter - users expect bloomjoin to use Bloom filters!
   bloom_beneficial <- should_use_bloom_filter(x, y, type)
@@ -309,6 +254,186 @@ should_use_bloom_filter <- function(x, y, type) {
   }
   
   return(TRUE) # Default to using Bloom filter
+}
+
+#' Validate inputs and prepare join parameters
+#' 
+#' @param x A data frame
+#' @param y A data frame
+#' @param by A character vector of variables to join by
+#' @param type Type of join
+#' @param false_positive_rate False positive rate
+#' @param verbose Logical, whether to print performance information
+#' 
+#' @return List with validation results and prepared parameters
+#' @keywords internal
+validate_and_prepare_join <- function(x, y, by, type, false_positive_rate, verbose) {
+  # Enhanced input validation with better error messages
+  validate_data_frames(x, y)
+  validate_join_parameters(type, false_positive_rate)
+  
+  # Check for empty data frames
+  if (nrow(x) == 0 || nrow(y) == 0) {
+    warning("One or both data frames are empty. ", 
+           "x has ", nrow(x), " rows, y has ", nrow(y), " rows")
+    result <- perform_standard_join(x, y, by, type)
+    return(list(should_skip_bloom = TRUE, result = result))
+  }
+  
+  # Check for very large datasets and warn about memory usage
+  total_rows <- nrow(x) + nrow(y)
+  if (total_rows > 1000000) {
+    message("Large dataset detected (", format(total_rows, big.mark = ","), " total rows). ", 
+           "Consider using smaller false_positive_rate or chunked processing for very large datasets.")
+  }
+  
+  # Prepare join columns
+  by_result <- prepare_join_columns(x, y, by)
+  
+  return(list(
+    should_skip_bloom = FALSE,
+    by = by_result$by,
+    join_col = by_result$join_col,
+    temp_join_cols = by_result$temp_join_cols,
+    orig_by = by_result$orig_by,
+    x = by_result$x,
+    y = by_result$y
+  ))
+}
+
+#' Validate that inputs are data frames
+#' @keywords internal
+validate_data_frames <- function(x, y) {
+  if (!is.data.frame(x) || !is.data.frame(y)) {
+    x_type <- if (is.null(x)) "NULL" else class(x)[1]
+    y_type <- if (is.null(y)) "NULL" else class(y)[1]
+    
+    stop("Both x and y must be data frames.\n", 
+         "  - x is class '", x_type, "' with length ", length(x), "\n",
+         "  - y is class '", y_type, "' with length ", length(y), "\n",
+         "Convert to data.frame using:\n",
+         "  - as.data.frame() for basic conversion\n",
+         "  - tibble::as_tibble() for tibble format\n",
+         "  - data.table::setDF() for data.table objects")
+  }
+  
+  # Check for required columns
+  if (ncol(x) == 0) stop("Data frame x has no columns")
+  if (ncol(y) == 0) stop("Data frame y has no columns")
+}
+
+#' Validate join parameters
+#' @keywords internal  
+validate_join_parameters <- function(type, false_positive_rate) {
+  # Validate join type
+  valid_types <- c("inner", "left", "right", "full", "semi", "anti")
+  if (!type %in% valid_types) {
+    stop("Invalid join type '", type, "'.\n", 
+         "Valid types: ", paste(valid_types, collapse = ", "), "\n",
+         "Did you mean: ", find_closest_match(type, valid_types), "?")
+  }
+  
+  # Validate false positive rate
+  if (false_positive_rate <= 0 || false_positive_rate >= 1) {
+    stop("false_positive_rate must be between 0 and 1 (exclusive).\n", 
+         "Received: ", false_positive_rate, "\n",
+         "Common values: 0.01 (1%), 0.001 (0.1%), 0.1 (10%)")
+  }
+}
+
+#' Find closest match for error suggestions
+#' @keywords internal
+find_closest_match <- function(input, options) {
+  if (length(options) == 0) return("none available")
+  
+  # Simple string distance calculation
+  distances <- sapply(options, function(opt) {
+    # Use simple edit distance approximation
+    sum(strsplit(input, "")[[1]] != strsplit(opt, "")[[1]][1:min(nchar(input), nchar(opt))])
+  })
+  
+  options[which.min(distances)]
+}
+
+#' Prepare join columns and handle named vectors
+#' 
+#' @param x A data frame
+#' @param y A data frame
+#' @param by A character vector of variables to join by
+#' 
+#' @return List with prepared join columns
+#' @keywords internal
+prepare_join_columns <- function(x, y, by) {
+  orig_by <- by
+  temp_join_cols <- NULL
+  
+  # Determine the join columns
+  if (is.null(by)) {
+    by <- intersect(names(x), names(y))
+    if (length(by) == 0) {
+      stop("No common variables in x and y to join by. ", 
+           "Please specify 'by' parameter explicitly")
+    }
+  } else if (is.character(by)) {
+    # Handle named vectors correctly
+    if (!is.null(names(by)) && any(names(by) != "")) {
+      # Named vector case (different column names)
+      x_cols <- names(by)
+      y_cols <- unname(by)
+
+      # Check if join columns exist in respective data frames
+      if (!all(x_cols %in% names(x))) {
+        missing_x <- x_cols[!x_cols %in% names(x)]
+        stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
+      }
+      if (!all(y_cols %in% names(y))) {
+        missing_y <- y_cols[!y_cols %in% names(y)]
+        stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
+      }
+
+      # Create temporary columns for joining
+      temp_join_cols <- character()
+      for (i in seq_along(by)) {
+        x_col <- x_cols[i]
+        y_col <- y_cols[i]
+        temp_col <- paste0(".temp_join_", i)
+        temp_join_cols <- c(temp_join_cols, temp_col)
+        
+        x[[temp_col]] <- x[[x_col]]
+        y[[temp_col]] <- y[[y_col]]
+      }
+      by <- temp_join_cols
+    } else {
+      # Simple character vector - check if all columns exist
+      if (!all(by %in% names(x))) {
+        missing_x <- by[!by %in% names(x)]
+        stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
+      }
+      if (!all(by %in% names(y))) {
+        missing_y <- by[!by %in% names(y)]
+        stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
+      }
+    }
+  }
+
+  # Create a single join column if multiple columns specified
+  if (length(by) > 1) {
+    # Create composite key
+    x$.composite_key <- do.call(paste, c(x[by], sep = "\001"))
+    y$.composite_key <- do.call(paste, c(y[by], sep = "\001"))
+    join_col <- ".composite_key"
+  } else {
+    join_col <- by
+  }
+  
+  return(list(
+    by = by,
+    join_col = join_col,
+    temp_join_cols = temp_join_cols,
+    orig_by = orig_by,
+    x = x,
+    y = y
+  ))
 }
 
 #' Perform standard join operations

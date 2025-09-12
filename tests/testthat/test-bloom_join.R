@@ -174,7 +174,7 @@ test_that("bloom_join throws appropriate errors", {
   expect_error(bloom_join(x, y, type = "invalid_type"), "Invalid join type")
 
   # Test missing join columns
-  expect_error(bloom_join(x, y, by = c("non_existent")), "Not all join columns found")
+  expect_error(bloom_join(x, y, by = c("non_existent")), "Join columns not found in x")
 })
 
 # Test with duplicated keys - suppress many-to-many warnings
