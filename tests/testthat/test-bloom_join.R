@@ -296,14 +296,15 @@ test_that("bloom_join automatically determines join columns correctly", {
   expect_equal(nrow(result_auto), nrow(result_std))
 })
 
-# Test class assignment
-test_that("bloom_join adds bloomjoin class to result", {
+# Test result structure - bloom_join should produce identical results to dplyr
+test_that("bloom_join produces identical results to dplyr joins", {
   # Create test data
   x <- tibble(id = 1:100, value_x = rnorm(100))
   y <- tibble(id = 50:150, value_y = rnorm(101))
 
-  result <- bloom_join(x, y)
+  bloom_result <- bloom_join(x, y)
+  dplyr_result <- inner_join(x, y, by = "id")
 
-  # Check class
-  expect_true("bloomjoin" %in% class(result))
+  # Should produce identical results
+  expect_identical(bloom_result, dplyr_result)
 })

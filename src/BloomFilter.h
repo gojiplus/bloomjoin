@@ -13,8 +13,8 @@ using namespace Rcpp;
 // MurmurHash3 implementation (optimized for speed and good distribution)
 uint32_t MurmurHash3(const std::string& key, uint32_t seed);
 
-// xxHash32 - faster alternative hash function
-uint32_t xxHash32(const std::string& key, uint32_t seed);
+// Fast hash function optimized for Bloom filters
+uint32_t FastHash(const std::string& key, uint32_t seed);
 
 // Double hashing using MurmurHash3 with different seeds
 uint32_t DoubleHash(const std::string& key, uint32_t seed, uint32_t i, size_t m);

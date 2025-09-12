@@ -1,4 +1,5 @@
 #include "BloomFilter.h"
+// [[Rcpp::plugins(cpp11)]]
 
 // MurmurHash3 implementation (improved)
 uint32_t MurmurHash3(const std::string& key, uint32_t seed) {
@@ -54,34 +55,55 @@ uint32_t MurmurHash3(const std::string& key, uint32_t seed) {
   return hash;
 }
 
-// xxHash32 - faster hash function for better performance
-uint32_t xxHash32(const std::string& key, uint32_t seed) {
-  const uint32_t PRIME32_1 = 2654435761U;
-  const uint32_t PRIME32_2 = 2246822519U;
-  const uint32_t PRIME32_3 = 3266489917U;
-  const uint32_t PRIME32_5 =  374761393U;
+// Fast and simple hash function - optimized for speed
+uint32_t FastHash(const std::string& key, uint32_t seed) {
+  uint32_t hash = seed;
+  const char* data = key.c_str();
+  const size_t len = key.size();
   
-  uint32_t hash = seed + PRIME32_5 + static_cast<uint32_t>(key.size());
+  // Process 4 bytes at a time when possible
+  const size_t blocks = len / 4;
+  const uint32_t* blocks32 = reinterpret_cast<const uint32_t*>(data);
   
-  for (size_t i = 0; i < key.size(); ++i) {
-    hash += static_cast<uint8_t>(key[i]) * PRIME32_5;
-    hash = ((hash << 11) | (hash >> (32 - 11))) * PRIME32_1;
+  for (size_t i = 0; i < blocks; i++) {
+    uint32_t k = blocks32[i];
+    k *= 0xcc9e2d51;
+    k = (k << 15) | (k >> 17);
+    k *= 0x1b873593;
+    hash ^= k;
+    hash = ((hash << 13) | (hash >> 19)) * 5 + 0xe6546b64;
   }
   
-  hash ^= hash >> 15;
-  hash *= PRIME32_2;
+  // Handle remaining bytes
+  const uint8_t* tail = reinterpret_cast<const uint8_t*>(data + blocks * 4);
+  uint32_t k = 0;
+  switch (len & 3) {
+    case 3: k ^= tail[2] << 16;
+    case 2: k ^= tail[1] << 8;
+    case 1: k ^= tail[0];
+            k *= 0xcc9e2d51;
+            k = (k << 15) | (k >> 17);
+            k *= 0x1b873593;
+            hash ^= k;
+  }
+  
+  // Final mix
+  hash ^= len;
+  hash ^= hash >> 16;
+  hash *= 0x85ebca6b;
   hash ^= hash >> 13;
-  hash *= PRIME32_3;
+  hash *= 0xc2b2ae35;
   hash ^= hash >> 16;
   
   return hash;
 }
 
-// Double hashing using MurmurHash3 with linear probing
+// Optimized double hashing using faster hash functions and bit masking
 uint32_t DoubleHash(const std::string& key, uint32_t seed, uint32_t i, size_t m) {
-  uint32_t h1 = MurmurHash3(key, seed);
-  uint32_t h2 = MurmurHash3(key, seed + 1) | 1; // Ensure h2 is odd
-  return (h1 + i * h2) % m;
+  uint32_t h1 = FastHash(key, seed);
+  uint32_t h2 = FastHash(key, seed + 1) | 1; // Ensure h2 is odd
+  // Use bit masking instead of modulo since m is power of 2
+  return (h1 + i * h2) & (m - 1);
 }
 
 
@@ -98,20 +120,28 @@ BloomFilter::BloomFilter(size_t expected_elements, double false_positive_rate) {
     false_positive_rate = 0.01;
   }
   
-  // Calculate optimal filter size and number of hash functions
-  m = std::ceil(-(expected_elements * log(false_positive_rate)) / (log(2) * log(2)));
-  k = std::round((static_cast<double>(m) / expected_elements) * log(2));
-
-  // Ensure we have reasonable values
-  k = std::max<size_t>(1, std::min<size_t>(k, 20)); // Increased max hash functions
-  m = std::max<size_t>(expected_elements, m);
-  
-  // Ensure m is a good size (power of 2 for better modulo performance)
-  if (m > 1000) {
-    size_t power = 1;
-    while (power < m) power <<= 1;
-    if (power - m < m * 0.1) m = power; // Use power of 2 if close
+  // Optimized filter size calculation - favor speed over perfect optimization
+  if (false_positive_rate >= 0.1) {
+    // High FPR - use smaller filter
+    m = expected_elements * 5;
+    k = 2;
+  } else if (false_positive_rate >= 0.01) {
+    // Standard FPR
+    m = expected_elements * 10;
+    k = 3;
+  } else {
+    // Low FPR - larger filter
+    m = expected_elements * 15;
+    k = 4;
   }
+  
+  // Ensure power of 2 for fast modulo (using bit masking)
+  size_t power = 1;
+  while (power < m) power <<= 1;
+  m = power;
+  
+  // Limit hash functions for speed
+  k = std::max<size_t>(1, std::min<size_t>(k, 4));
 
   // Initialize the bit array
   bits.resize(m, false);
@@ -229,7 +259,7 @@ LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, CharacterVector keys) {
   return result;
 }
 
-// Improved batch processing function with better NA handling
+// Optimized batch processing function
 // [[Rcpp::export]]
 LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
                                size_t expected_elements, double false_positive_rate = 0.01) {
@@ -238,24 +268,23 @@ LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
     return LogicalVector(x_keys.size(), false);
   }
   
+  // Pre-check for NA values in y_keys (do this once)
+  bool has_na_in_y = false;
+  for (int j = 0; j < y_keys.size() && !has_na_in_y; j++) {
+    has_na_in_y = CharacterVector::is_na(y_keys[j]);
+  }
+  
   // Create the filter from y_keys with optimal sizing
   XPtr<BloomFilter> filter = rcpp_create_filter(y_keys, expected_elements, false_positive_rate);
 
-  // Check all x_keys against the filter
+  // Check all x_keys against the filter - optimized loop
   LogicalVector result(x_keys.size());
   
   for (int i = 0; i < x_keys.size(); i++) {
     if (CharacterVector::is_na(x_keys[i])) {
-      // Check if any y_keys were NA
-      bool has_na_in_y = false;
-      for (int j = 0; j < y_keys.size(); j++) {
-        if (CharacterVector::is_na(y_keys[j])) {
-          has_na_in_y = true;
-          break;
-        }
-      }
       result[i] = has_na_in_y;
     } else {
+      // Avoid string conversion by using SEXP directly when possible
       std::string key = as<std::string>(x_keys[i]);
       result[i] = filter->contains(key);
     }

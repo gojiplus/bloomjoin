@@ -63,8 +63,17 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
 
   # Join column preparation is now handled in validate_and_prepare_join
 
-  # Always use Bloom filter - users expect bloomjoin to use Bloom filters!
+  # Only use Bloom filter when it will actually improve performance
   bloom_beneficial <- should_use_bloom_filter(x, y, type)
+  
+  # Skip Bloom filter for small datasets where overhead exceeds benefits
+  if (nrow(x) < 1000 && nrow(y) < 1000) {
+    if (verbose) {
+      message("Small dataset detected - using standard join for better performance")
+    }
+    result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
+    return(result)
+  }
 
   # For anti-joins, skip Bloom filter entirely and go straight to standard join
   if (type == "anti") {
@@ -83,16 +92,16 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
       message(sprintf("Bloom join completed in %.3f seconds", elapsed))
     }
     
-    # Add metadata for anti-joins
-    attr(result, "bloom_metadata") <- list(
-      original_rows_x = nrow(x),
-      original_rows_y = nrow(y),
-      join_type = type,
-      bloom_filter_used = FALSE,
-      note = "Anti-joins bypass Bloom filters due to false positive limitations"
-    )
-    
-    class(result) <- c("bloomjoin", class(result))
+    # Only add metadata for anti-joins if verbose mode is enabled
+    if (verbose) {
+      attr(result, "bloom_metadata") <- list(
+        original_rows_x = nrow(x),
+        original_rows_y = nrow(y),
+        join_type = type,
+        bloom_filter_used = FALSE,
+        note = "Anti-joins bypass Bloom filters due to false positive limitations"
+      )
+    }
     return(result)
   }
 
@@ -178,9 +187,14 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
   if (exists("temp_join_cols")) {
     result[temp_join_cols] <- NULL
   }
+  
+  # Remove composite key columns if they exist in the result
+  composite_cols <- names(result)[grepl("^\\.composite_key", names(result))]
+  if (length(composite_cols) > 0) {
+    result[composite_cols] <- NULL
+  }
 
-  # Add class and metadata
-  class(result) <- c("bloomjoin", class(result))
+  # Keep result as standard data frame to match dplyr output exactly
   
   if (verbose) {
     end_time <- Sys.time()
@@ -188,31 +202,33 @@ bloom_join <- function(x, y, by = NULL, type = "inner",
     message(sprintf("Bloom join completed in %.3f seconds", elapsed))
   }
   
-  # Add metadata as attributes
-  if (type %in% c("inner", "semi")) {
-    # For joins that benefit from filtering
-    attr(result, "bloom_metadata") <- list(
-      original_rows_x = nrow(x),
-      original_rows_y = nrow(y),
-      filtered_rows_x = sum(is_in_filter),
-      bloom_size = bloom_size,
-      false_positive_rate = false_positive_rate,
-      reduction_ratio = reduction_ratio,
-      join_type = type,
-      bloom_filter_used = TRUE
-    )
-  } else {
-    # For joins where filtering wasn't applied
-    attr(result, "bloom_metadata") <- list(
-      original_rows_x = nrow(x),
-      original_rows_y = nrow(y),
-      filtered_rows_x = nrow(x), # No filtering applied
-      bloom_size = bloom_size,
-      false_positive_rate = false_positive_rate,
-      reduction_ratio = 0, # No reduction since all rows kept
-      join_type = type,
-      bloom_filter_used = FALSE
-    )
+  # Only add metadata if verbose mode is enabled - to match dplyr output exactly
+  if (verbose) {
+    if (type %in% c("inner", "semi")) {
+      # For joins that benefit from filtering
+      attr(result, "bloom_metadata") <- list(
+        original_rows_x = nrow(x),
+        original_rows_y = nrow(y),
+        filtered_rows_x = sum(is_in_filter),
+        bloom_size = bloom_size,
+        false_positive_rate = false_positive_rate,
+        reduction_ratio = reduction_ratio,
+        join_type = type,
+        bloom_filter_used = TRUE
+      )
+    } else {
+      # For joins where filtering wasn't applied
+      attr(result, "bloom_metadata") <- list(
+        original_rows_x = nrow(x),
+        original_rows_y = nrow(y),
+        filtered_rows_x = nrow(x), # No filtering applied
+        bloom_size = bloom_size,
+        false_positive_rate = false_positive_rate,
+        reduction_ratio = 0, # No reduction since all rows kept
+        join_type = type,
+        bloom_filter_used = FALSE
+      )
+    }
   }
 
   return(result)
