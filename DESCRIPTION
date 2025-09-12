@@ -1,11 +1,15 @@
 Package: bloomjoin
 Title: Efficient Data Frame Joins Using Bloom Filters
-Version: 0.1.2
+Version: 1.0.0
 Authors@R: person("Gaurav Sood", email = "gsood07@gmail.com", role = c("aut", "cre"))
-Description: This package provides optimized join operations for large data frames using
-    Bloom filters to reduce memory usage and improve performance. It is particularly
-    effective when joining a large data frame with a smaller one, and when many keys
-    in the larger data frame don't have matches.
+Author: Gaurav Sood [aut, cre]
+Maintainer: Gaurav Sood <gsood07@gmail.com>
+Description: Provides high-performance join operations for large data frames using
+    Bloom filters to reduce memory usage and improve performance. The package is 
+    particularly effective when joining a large data frame with a smaller lookup table,
+    and when many keys in the larger data frame don't have matches. Features include
+    optimized C++ implementation, intelligent join strategy selection, comprehensive
+    NA handling, and support for all standard join types.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -16,20 +20,8 @@ Imports:
 LinkingTo: Rcpp
 Suggests: 
     testthat (>= 3.0.0),
-    rlang,
-    tidyverse,
-    tidyr,
-    readr,
     tibble,
     rmarkdown,
-    hms,
-    knitr (>= 1.11),
-    lintr,
-    xml2,
-    kableExtra,
-    reshape2,
-    data.table,
-    ggplot2,
-    microbenchmark
+    knitr (>= 1.11)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

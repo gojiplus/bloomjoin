@@ -10,7 +10,8 @@ bloom_join(
   by = NULL,
   type = "inner",
   bloom_size = NULL,
-  false_positive_rate = 0.01
+  false_positive_rate = 0.01,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ bloom_join(
 \item{bloom_size}{Size of the Bloom filter. If NULL, will be automatically calculated}
 
 \item{false_positive_rate}{False positive rate for the Bloom filter (default: 0.01)}
+
+\item{verbose}{Logical, whether to print performance information (default: FALSE)}
 }
 \value{
 A joined data frame with a class of "bloomjoin"

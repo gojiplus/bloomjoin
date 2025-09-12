@@ -2,14 +2,14 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 rcpp_create_filter <- function(keys, expected_elements, false_positive_rate = 0.01) {
-    .Call('_bloomjoin_rcpp_create_filter', PACKAGE = 'bloomjoin', keys, expected_elements, false_positive_rate)
+    .Call(`_bloomjoin_rcpp_create_filter`, keys, expected_elements, false_positive_rate)
 }
 
 rcpp_check_keys <- function(filter, keys) {
-    .Call('_bloomjoin_rcpp_check_keys', PACKAGE = 'bloomjoin', filter, keys)
+    .Call(`_bloomjoin_rcpp_check_keys`, filter, keys)
 }
 
 rcpp_filter_keys <- function(y_keys, x_keys, expected_elements, false_positive_rate = 0.01) {
-    .Call('_bloomjoin_rcpp_filter_keys', PACKAGE = 'bloomjoin', y_keys, x_keys, expected_elements, false_positive_rate)
+    .Call(`_bloomjoin_rcpp_filter_keys`, y_keys, x_keys, expected_elements, false_positive_rate)
 }
 

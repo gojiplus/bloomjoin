@@ -170,10 +170,8 @@ test_that("bloom_join throws appropriate errors", {
   expect_error(bloom_join(list(1:10), y), "must be data frames")
   expect_error(bloom_join(x, list(1:10)), "must be data frames")
 
-  # Test invalid join type - suppress warning about non-standard join
-  suppressWarnings({
-    expect_error(bloom_join(x, y, type = "invalid_type"), "Unsupported join type")
-  })
+  # Test invalid join type
+  expect_error(bloom_join(x, y, type = "invalid_type"), "Invalid join type")
 
   # Test missing join columns
   expect_error(bloom_join(x, y, by = c("non_existent")), "Not all join columns found")
