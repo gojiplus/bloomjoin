@@ -96,7 +96,7 @@ stopifnot(identical(arranged_bloom, arranged_baseline))
 stopifnot(
   isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE))
 )
-
+```
 
 ## Performance Testing Framework
 
