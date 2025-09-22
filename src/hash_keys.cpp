@@ -147,7 +147,8 @@ static inline uint64_t hash_elem(SEXP col, R_xlen_t i, bool normalize_strings) {
 // [[Rcpp::export]]
 IntegerVector hash_keys32_cols(List cols,
                                bool normalize_strings = true,
-                               bool /*na_sentinel*/ = true) {
+                               bool na_sentinel = true) {
+  (void)na_sentinel;  // retained for signature compatibility
   if (cols.size() == 0) {
     stop("`cols` must contain at least one column.");
   }
