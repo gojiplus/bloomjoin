@@ -2,6 +2,7 @@
 
 export(bloom_join)
 export(bloom_params)
+S3method(print,bloom_params)
 importFrom(Rcpp,evalCpp)
 importFrom(Rcpp,sourceCpp)
 importFrom(dplyr,anti_join)
