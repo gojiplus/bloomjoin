@@ -28,6 +28,7 @@ Suggests:
     knitr (>= 1.11),
     microbenchmark,
     bench,
-    ggplot2
+    ggplot2,
+    waldo
 Config/testthat/edition: 3
 VignetteBuilder: knitr
