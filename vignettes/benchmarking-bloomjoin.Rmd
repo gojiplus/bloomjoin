@@ -84,7 +84,9 @@ arranged_bloom <- as.data.frame(arranged_bloom)
 arranged_baseline <- as.data.frame(arranged_baseline)
 
 stopifnot(identical(arranged_bloom, arranged_baseline))
-```
+=======
+stopifnot(isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE)))
+
 
 ## Performance Testing Framework
 
