@@ -1,5 +1,6 @@
 ## BloomJoin: Bloom Filter Based Joins
 
+[![CI](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml)
 [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/bloomjoin)](https://cran.r-project.org/package=bloomjoin)
 ![](http://cranlogs.r-pkg.org/badges/grand-total/bloomjoin)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/bloomjoin/)
