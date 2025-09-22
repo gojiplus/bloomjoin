@@ -28,6 +28,25 @@ library(dplyr)
 library(tibble)
 library(ggplot2)
 library(microbenchmark)
+library(bench)
+```
+
+## Correctness Validation
+
+Before diving into performance, let's ensure that `bloom_join()` produces the
+same results as the equivalent `dplyr` verbs.
+
+```{r correctness-check}
+test_data <- generate_test_data(1000, 800, 0.15)
+
+bloom_result <- bloom_join(test_data$left, test_data$right, by = "id")
+baseline_result <- inner_join(test_data$left, test_data$right, by = "id")
+
+# Sort columns and rows to make comparison deterministic
+arranged_bloom <- arrange(bloom_result, id)
+arranged_baseline <- arrange(baseline_result, id)
+
+stopifnot(identical(arranged_bloom, arranged_baseline))
 ```
 
 ## Performance Testing Framework
@@ -223,43 +242,31 @@ cat("so performance is similar to standard joins.\n")
 
 ## Memory Usage Analysis
 
-Let's examine memory efficiency:
+Let's examine memory efficiency using the `bench` package, which records peak
+memory allocations alongside execution time:
 
 ```{r memory-analysis}
 cat("=== MEMORY USAGE ANALYSIS ===\n")
 
-# Function to measure memory usage
-measure_memory_usage <- function(n_left, n_right, overlap_pct) {
+memory_benchmark <- function(n_left, n_right, overlap_pct, iterations = 5) {
   test_data <- generate_test_data(n_left, n_right, overlap_pct)
-  
-  # Measure bloom_join memory
-  gc()
-  mem_before <- sum(gc()[,2])
-  bloom_result <- bloom_join(test_data$left, test_data$right, by = "id")
-  mem_after <- sum(gc()[,2])
-  bloom_memory <- mem_after - mem_before
-  
-  # Measure dplyr join memory  
-  gc()
-  mem_before <- sum(gc()[,2])
-  dplyr_result <- inner_join(test_data$left, test_data$right, by = "id")
-  mem_after <- sum(gc()[,2])
-  dplyr_memory <- mem_after - mem_before
-  
-  list(
-    bloom_memory = bloom_memory,
-    dplyr_memory = dplyr_memory,
-    memory_ratio = dplyr_memory / bloom_memory
+
+  bench::mark(
+    bloom_join = bloom_join(test_data$left, test_data$right, by = "id"),
+    dplyr_join = inner_join(test_data$left, test_data$right, by = "id"),
+    iterations = iterations,
+    check = FALSE
   )
 }
 
-# Test memory usage
-memory_test <- measure_memory_usage(25000, 2500, 0.08)
+memory_test <- memory_benchmark(25000, 2500, 0.08, iterations = 5)
 
-cat("Memory usage comparison:\n")
-cat("Bloom join memory delta:", round(memory_test$bloom_memory, 2), "MB\n")
-cat("Dplyr join memory delta:", round(memory_test$dplyr_memory, 2), "MB\n")
-cat("Memory efficiency ratio:", round(memory_test$memory_ratio, 2), "x\n")
+print(memory_test[, c("expression", "median", "mem_alloc", "gc")])
+
+ratio <- memory_test$mem_alloc[memory_test$expression == "dplyr_join"] /
+  memory_test$mem_alloc[memory_test$expression == "bloom_join"]
+
+cat("\nMemory efficiency ratio (dplyr / bloom):", round(ratio, 2), "x\n")
 ```
 
 ## Performance Recommendations

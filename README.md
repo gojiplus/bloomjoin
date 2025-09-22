@@ -43,6 +43,42 @@ result <- bloom_join(df1, df2,
                     verbose = TRUE)
 ```
 
+### Proof of Correctness
+
+```r
+library(dplyr)
+library(tibble)
+
+set.seed(123)
+left <- tibble(id = sample(1:5000, 4000), value_left = rnorm(4000))
+right <- tibble(id = sample(1:5000, 1500), value_right = rnorm(1500))
+
+bloom <- bloom_join(left, right, by = "id") %>% arrange(id)
+reference <- inner_join(left, right, by = "id") %>% arrange(id)
+
+stopifnot(identical(bloom, reference))
+```
+
+### Benchmarking Time and Memory
+
+```r
+library(bench)
+
+bench::mark(
+  bloom_join = bloom_join(left, right, by = "id"),
+  dplyr_join = inner_join(left, right, by = "id"),
+  iterations = 5,
+  check = FALSE
+)
+```
+
+For a ready-to-run demonstration that generates data, verifies correctness, and
+prints benchmark summaries, execute:
+
+```sh
+Rscript inst/scripts/usage-and-benchmark.R
+```
+
 ## How It Works
 
 BloomJoin uses a Bloom filter pre-processing step to optimize joins:
