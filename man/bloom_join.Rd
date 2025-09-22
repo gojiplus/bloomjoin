@@ -2,43 +2,61 @@
 % Please edit documentation in R/bloomjoin.R
 \name{bloom_join}
 \alias{bloom_join}
-\title{Join two data frames using a Bloom filter implemented with Rcpp}
+\title{Join two data frames using a Bloom filter pre-filter}
 \usage{
-bloom_join(
+ bloom_join(
   x,
   y,
   by = NULL,
-  type = "inner",
-  bloom_size = NULL,
-  false_positive_rate = 0.01,
+  type = c("inner", "left", "right", "full", "semi", "anti"),
+  engine = c("auto", "bloom", "fuse"),
+  prefilter_side = c("auto", "x", "y"),
+  fpr = 0.01,
+  n_hint = NULL,
   verbose = FALSE
-)
+ )
 }
 \arguments{
-\item{x}{A data frame}
+\item{x, y}{Data frames to join.}
 
-\item{y}{A data frame}
+\item{by}{A character vector or named character vector specifying the join
+columns, matching the `by` argument accepted by the dplyr join verbs.}
 
-\item{by}{A character vector of variables to join by}
+\item{type}{Type of join to perform. One of `"inner"`, `"left"`, `"right"`,
+`"full"`, `"semi"`, or `"anti"`.}
 
-\item{type}{Type of join: "inner", "left", "right", "full", "semi", or "anti"}
+\item{engine}{Probabilistic pre-filter implementation to use. Currently only
+`"bloom"` is implemented. `"auto"` resolves to `"bloom"`; `"fuse"` is
+reserved for a future binary-fuse filter.}
 
-\item{bloom_size}{Size of the Bloom filter. If NULL, will be automatically calculated}
+\item{prefilter_side}{Which table to pre-filter. Use `"x"` to pre-filter the
+first input, `"y"` to pre-filter the second input, or `"auto"` to let
+\code{bloom_join()} choose a side based on join semantics and distinct-count
+estimates.}
 
-\item{false_positive_rate}{False positive rate for the Bloom filter (default: 0.01)}
+\item{fpr}{Target false positive rate for the Bloom filter. Must be between 0
+and 1.}
 
-\item{verbose}{Logical, whether to print performance information (default: FALSE)}
+\item{n_hint}{Optional estimated distinct counts for the join keys. Supply a
+numeric scalar to use the same hint for both tables or a named list/vector with
+entries `x` and/or `y`.}
+
+\item{verbose}{Logical flag controlling diagnostic output.}
 }
 \value{
-A joined data frame with a class of "bloomjoin"
+A data frame identical to the corresponding dplyr join with an additional
+\code{"bloomjoin"} class and a \code{bloom_metadata} attribute describing the
+pre-filter decision.
 }
 \description{
-This function uses a high-performance Rcpp implementation of Bloom filters to efficiently join
-large data frames. The Bloom filter is used to pre-filter the left data frame, reducing the
-number of comparisons needed for the actual join.
+\code{bloom_join()} wraps the standard dplyr join verbs with a probabilistic
+pre-filter stage implemented in C++ via Rcpp. The filter trims the rows that
+reach the expensive join when the overlap between the two tables is small,
+yielding faster joins without changing the final result.
 }
 \examples{
 x <- data.frame(id = 1:100000, value_x = rnorm(100000))
 y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
-result <- bloom_join(x, y, by = "id")
+
+bloom_join(x, y, by = "id", verbose = TRUE)
 }

@@ -297,7 +297,7 @@ tuning_results <- list()
 for (fpr in fpr_values) {
   start_time <- Sys.time()
   result <- bloom_join(test_data$left, test_data$right, by = "id", 
-                      false_positive_rate = fpr, verbose = TRUE)
+                      fpr = fpr, verbose = TRUE)
   end_time <- Sys.time()
   
   tuning_results[[as.character(fpr)]] <- list(

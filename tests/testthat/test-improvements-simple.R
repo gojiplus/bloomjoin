@@ -35,13 +35,18 @@ test_that("improved error handling works correctly", {
   
   # Test invalid false positive rate
   expect_error(
-    bloom_join(x, y, by = "id", false_positive_rate = 0),
-    "false_positive_rate must be between 0 and 1"
+    bloom_join(x, y, by = "id", fpr = 0),
+    "'fpr' must be strictly between 0 and 1"
   )
-  
+
   expect_error(
-    bloom_join(x, y, by = "id", false_positive_rate = 1.1),
-    "false_positive_rate must be between 0 and 1"
+    bloom_join(x, y, by = "id", fpr = 1.1),
+    "'fpr' must be strictly between 0 and 1"
+  )
+
+  expect_error(
+    bloom_join(x, y, by = "id", engine = "fuse"),
+    "not implemented"
   )
   
   # Test invalid join type
@@ -117,16 +122,10 @@ test_that("empty data frame handling", {
   y_empty <- tibble(id = integer(), value_y = numeric())
   
   # Empty x should work
-  expect_warning(
-    result1 <- bloom_join(x_empty, y_normal, by = "id"),
-    "empty"
-  )
+  result1 <- bloom_join(x_empty, y_normal, by = "id")
   expect_equal(nrow(result1), 0)
-  
-  # Empty y should work  
-  expect_warning(
-    result2 <- bloom_join(x_normal, y_empty, by = "id"),
-    "empty"
-  )
+
+  # Empty y should work
+  result2 <- bloom_join(x_normal, y_empty, by = "id")
   expect_equal(nrow(result2), 0)
 })

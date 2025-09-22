@@ -4,7 +4,7 @@ An R package implementing Bloom filter-based joins for improved performance with
 
 ## Overview
 
-BloomJoin provides an alternative join implementation for R that uses a hash-based approach inspired by Bloom filters to optimize the performance of joins between data frames. Traditional joins in R can be inefficient when dealing with large datasets, especially when one table is significantly larger than the other and the join key selectivity is low.
+BloomJoin provides an alternative join implementation for R that uses an actual Bloom filter, implemented in C++ via Rcpp, to optimize the performance of joins between data frames. Traditional joins in R can be inefficient when dealing with large datasets, especially when one table is significantly larger than the other and the join key selectivity is low.
 
 ## Installation
 
@@ -25,23 +25,25 @@ result <- bloom_join(df1, df2, by = "id", type = "inner")
 result <- bloom_join(df1, df2, by = c("id", "date"), type = "left")
 
 # With performance tuning parameters
-result <- bloom_join(df1, df2, 
-                    by = "id", 
+result <- bloom_join(df1, df2,
+                    by = "id",
                     type = "inner",
-                    bloom_size = 1000000, 
-                    false_positive_rate = 0.001,
+                    engine = "bloom",
+                    prefilter_side = "auto",
+                    fpr = 0.001,
+                    n_hint = list(y = 50000),
                     verbose = TRUE)
 ```
 
 ## How It Works
 
-BloomJoin uses a hash-based approach to optimize joins:
+BloomJoin uses a Bloom filter pre-processing step to optimize joins:
 
-1. Create a hash set of all keys from the lookup table (y)
-2. Filter the primary table (x) to only include rows with keys that exist in the hash set
-3. Perform a standard join on the filtered dataset
+1. Sample the join keys to estimate distinct counts and decide which table to pre-filter.
+2. Build a Bloom filter (using a cache-friendly bitset stored in C++) from the chosen build-side join keys.
+3. Probe the filter with the opposing table to remove rows that cannot match before delegating to the appropriate `dplyr` verb.
 
-This pre-filtering step can significantly reduce the size of the join operation when many keys in the primary table don't exist in the lookup table.
+Because Bloom filters may produce false positives but never false negatives, this pre-filtering step safely reduces the number of rows that participate in the expensive join while preserving all possible matches. The underlying Bloom filter implementation is provided by a compiled Rcpp module for performance.
 
 ## Performance Benchmarks
 
@@ -49,10 +51,9 @@ See [here](https://htmlpreview.github.io/?https://github.com/gojiplus/bloomjoin/
 
 ## Future Work
 
-1. Implement true Bloom filters for potentially better memory efficiency
-2. Optimize for composite keys and other join types
-3. Parallel processing for hash creation and filtering
-4. Automatic parameter tuning based on input data characteristics
+1. Explore alternative probabilistic data structures (e.g., binary-fuse filters) for further memory savings
+2. Parallel processing for Bloom filter construction and probing
+3. Streaming/Chunked probing for very large inputs
 
 ## License
 
