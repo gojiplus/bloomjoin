@@ -5,6 +5,44 @@ library(testthat)
 library(dplyr)
 library(tibble)
 
+test_that("unsafe prefilter side requests fall back to safe options", {
+  x <- tibble(id = 1:5, value = letters[1:5])
+  y <- tibble(id = 3:7, lookup = LETTERS[1:5])
+
+  expect_warning(
+    left_result <- bloom_join(x, y, by = "id", type = "left", prefilter_side = "x"),
+    "incompatible with left/semi/anti joins"
+  )
+  default_left <- bloom_join(x, y, by = "id", type = "left")
+  expect_equal(left_result, default_left)
+  left_meta <- attr(left_result, "bloom_metadata")
+  expect_identical(left_meta$requested_prefilter_side, "x")
+  expect_identical(left_meta$chosen_prefilter_side, "y")
+  expect_true(isTRUE(left_meta$override_requested_side))
+
+  expect_warning(
+    right_result <- bloom_join(y, x, by = c("id" = "id"), type = "right", prefilter_side = "y"),
+    "incompatible with right joins"
+  )
+  default_right <- bloom_join(y, x, by = c("id" = "id"), type = "right")
+  expect_equal(right_result, default_right)
+  right_meta <- attr(right_result, "bloom_metadata")
+  expect_identical(right_meta$requested_prefilter_side, "y")
+  expect_identical(right_meta$chosen_prefilter_side, "x")
+  expect_true(isTRUE(right_meta$override_requested_side))
+
+  expect_warning(
+    full_result <- bloom_join(x, y, by = "id", type = "full", prefilter_side = "x"),
+    "Full joins retain all rows"
+  )
+  default_full <- bloom_join(x, y, by = "id", type = "full")
+  expect_equal(full_result, default_full)
+  full_meta <- attr(full_result, "bloom_metadata")
+  expect_identical(full_meta$requested_prefilter_side, "x")
+  expect_true(isTRUE(full_meta$override_requested_side))
+  expect_false(isTRUE(full_meta$bloom_filter_used))
+})
+
 test_that("extreme data sizes work correctly", {
   # Very small datasets
   x_tiny <- tibble(id = 1:3, value = 1:3)
