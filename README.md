@@ -13,6 +13,14 @@ BloomJoin provides an alternative join implementation for R that uses an actual 
 devtools::install_github("gojiplus/bloomjoin")
 ```
 
+## Documentation
+
+The full pkgdown site, including function reference, articles, and release notes, is published automatically to GitHub Pages whenever changes are pushed to the main branch. You can browse it at <https://soodoku.github.io/bloomjoin/>. To rebuild the site locally run:
+
+```r
+pkgdown::build_site()
+```
+
 ## Usage
 
 ```r
