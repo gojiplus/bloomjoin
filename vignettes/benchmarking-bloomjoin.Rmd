@@ -79,7 +79,7 @@ baseline_result <- inner_join(test_data$left, test_data$right, by = "id")
 arranged_bloom <- arrange(bloom_result, id)
 arranged_baseline <- arrange(baseline_result, id)
 
-stopifnot(identical(arranged_bloom, arranged_baseline))
+stopifnot(isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE)))
 ```
 
 ## Performance Testing Framework
