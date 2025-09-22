@@ -31,6 +31,39 @@ library(microbenchmark)
 library(bench)
 ```
 
+```{r helper-functions, include = FALSE}
+# Helper used across multiple sections to create reproducible benchmark data
+generate_test_data <- function(n_left, n_right, overlap_pct = 0.1, seed = 123) {
+  set.seed(seed)
+
+  # Create overlapping keys
+  n_overlap <- round(min(n_left, n_right) * overlap_pct)
+
+  # Generate unique IDs
+  base_ids <- sample(1:(n_left + n_right), n_left + n_right - n_overlap)
+
+  left_ids <- base_ids[1:n_left]
+  right_ids <- c(
+    sample(left_ids, n_overlap),  # Overlapping IDs
+    base_ids[(n_left + 1):(n_left + n_right - n_overlap)]  # Non-overlapping
+  )
+
+  left_df <- tibble(
+    id = left_ids,
+    left_value = rnorm(n_left),
+    left_category = sample(letters[1:5], n_left, replace = TRUE)
+  )
+
+  right_df <- tibble(
+    id = sample(right_ids),  # Shuffle for realism
+    right_value = rnorm(n_right),
+    right_flag = sample(c(TRUE, FALSE), n_right, replace = TRUE)
+  )
+
+  list(left = left_df, right = right_df, expected_matches = n_overlap)
+}
+```
+
 ## Correctness Validation
 
 Before diving into performance, let's ensure that `bloom_join()` produces the
@@ -54,41 +87,10 @@ stopifnot(identical(arranged_bloom, arranged_baseline))
 Let's create a systematic benchmarking framework to test different scenarios:
 
 ```{r benchmark-framework}
-# Function to generate test data with controlled characteristics
-generate_test_data <- function(n_left, n_right, overlap_pct = 0.1, seed = 123) {
-  set.seed(seed)
-  
-  # Create overlapping keys
-  n_overlap <- round(min(n_left, n_right) * overlap_pct)
-  
-  # Generate unique IDs
-  base_ids <- sample(1:(n_left + n_right), n_left + n_right - n_overlap)
-  
-  left_ids <- base_ids[1:n_left]
-  right_ids <- c(
-    sample(left_ids, n_overlap),  # Overlapping IDs
-    base_ids[(n_left + 1):(n_left + n_right - n_overlap)]  # Non-overlapping
-  )
-  
-  left_df <- tibble(
-    id = left_ids,
-    left_value = rnorm(n_left),
-    left_category = sample(letters[1:5], n_left, replace = TRUE)
-  )
-  
-  right_df <- tibble(
-    id = sample(right_ids),  # Shuffle for realism
-    right_value = rnorm(n_right),
-    right_flag = sample(c(TRUE, FALSE), n_right, replace = TRUE)
-  )
-  
-  list(left = left_df, right = right_df, expected_matches = n_overlap)
-}
-
-# Benchmarking function
+# Benchmarking function using the data generation helper defined above
 run_performance_test <- function(n_left, n_right, overlap_pct, join_type = "inner", times = 5) {
   test_data <- generate_test_data(n_left, n_right, overlap_pct)
-  
+
   # Warm up
   bloom_join(test_data$left, test_data$right, by = "id", type = join_type)
   
