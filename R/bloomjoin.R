@@ -309,6 +309,9 @@ plan_prefilter <- function(type, engine, prefilter_side, n_x, n_y, distinct_x, d
   target <- target_info$target
   if (is.null(target)) {
     metadata$reason <- target_info$reason
+    if (isTRUE(target_info$forced)) {
+      metadata$override_requested_side <- TRUE
+    }
     metadata$bloom_filter_used <- FALSE
     return(list(use_prefilter = FALSE, metadata = metadata))
   }
@@ -363,7 +366,7 @@ choose_prefilter_target <- function(type, prefilter_side, n_x, n_y, distinct_x, 
     if (type == "full") {
       return(enforce_semantics(
         NULL,
-        "Full joins retain all rows; ignoring explicit prefilter request",
+        "Full joins retain all rows",
         warn = TRUE
       ))
     }
@@ -463,6 +466,24 @@ execute_join_plan <- function(plan, x, y, by_spec, type, keys_x, keys_y, fpr, ve
 
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
+}
+
+strip_bloomjoin_attributes <- function(x) {
+  if (!inherits(x, "bloomjoin")) {
+    return(x)
+  }
+  x_stripped <- x
+  attr(x_stripped, "bloom_metadata") <- NULL
+  class(x_stripped) <- setdiff(class(x_stripped), "bloomjoin")
+  x_stripped
+}
+
+#' @export
+#' @method all.equal bloomjoin
+all.equal.bloomjoin <- function(target, current, ...) {
+  target <- strip_bloomjoin_attributes(target)
+  current <- strip_bloomjoin_attributes(current)
+  NextMethod()
 }
 
 perform_standard_join <- function(x, y, by = NULL, type = "inner") {
