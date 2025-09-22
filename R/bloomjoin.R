@@ -302,6 +302,9 @@ plan_prefilter <- function(type, engine, prefilter_side, n_x, n_y, distinct_x, d
     estimated_distinct_x = distinct_x,
     estimated_distinct_y = distinct_y
   )
+  if (prefilter_side %in% c("x", "y")) {
+    metadata$requested_prefilter_side <- prefilter_side
+  }
 
   target_info <- choose_prefilter_target(type, prefilter_side, n_x, n_y, distinct_x, distinct_y)
   target <- target_info$target
@@ -313,6 +316,9 @@ plan_prefilter <- function(type, engine, prefilter_side, n_x, n_y, distinct_x, d
   metadata$chosen_prefilter_side <- target
   if (!is.null(target_info$reason)) {
     metadata$reason <- target_info$reason
+  }
+  if (isTRUE(target_info$forced)) {
+    metadata$override_requested_side <- TRUE
   }
 
   build_keys <- if (target == "x") keys_y else keys_x
@@ -347,7 +353,35 @@ plan_prefilter <- function(type, engine, prefilter_side, n_x, n_y, distinct_x, d
 }
 
 choose_prefilter_target <- function(type, prefilter_side, n_x, n_y, distinct_x, distinct_y) {
+  enforce_semantics <- function(target, reason, warn = FALSE) {
+    if (warn) {
+      warning(reason, call. = FALSE)
+    }
+    list(target = target, reason = reason, forced = warn)
+  }
+
   if (prefilter_side %in% c("x", "y")) {
+    if (type == "full") {
+      return(enforce_semantics(
+        NULL,
+        "Full joins retain all rows; ignoring explicit prefilter request",
+        warn = TRUE
+      ))
+    }
+    if (type %in% c("left", "semi", "anti") && prefilter_side == "x") {
+      return(enforce_semantics(
+        "y",
+        "prefilter_side = 'x' is incompatible with left/semi/anti joins; using 'y' instead",
+        warn = TRUE
+      ))
+    }
+    if (type == "right" && prefilter_side == "y") {
+      return(enforce_semantics(
+        "x",
+        "prefilter_side = 'y' is incompatible with right joins; using 'x' instead",
+        warn = TRUE
+      ))
+    }
     return(list(target = prefilter_side))
   }
   if (type == "full") {
