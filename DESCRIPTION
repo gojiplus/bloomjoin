@@ -24,6 +24,7 @@ Suggests:
     rmarkdown,
     knitr (>= 1.11),
     microbenchmark,
+    bench,
     ggplot2
 Config/testthat/edition: 3
 VignetteBuilder: knitr
