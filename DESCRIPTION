@@ -18,9 +18,10 @@ Imports:
     dplyr,
     Rcpp (>= 1.0.0)
 LinkingTo: Rcpp
-Suggests: 
+Suggests:
     testthat (>= 3.0.0),
     tibble,
+    bit64,
     rmarkdown,
     knitr (>= 1.11),
     microbenchmark,

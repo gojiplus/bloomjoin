@@ -9,3 +9,7 @@ rcpp_hash_join_keys <- function(columns) {
     .Call(`_bloomjoin_rcpp_hash_join_keys`, columns)
 }
 
+hash_keys32_cols <- function(cols, normalize_strings = TRUE, na_sentinel = TRUE) {
+    .Call(`_bloomjoin_hash_keys32_cols`, cols, normalize_strings, na_sentinel)
+}
+

@@ -11,13 +11,13 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // rcpp_filter_keys
-LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys, size_t expected_elements, double false_positive_rate);
+LogicalVector rcpp_filter_keys(IntegerVector y_keys, IntegerVector x_keys, size_t expected_elements, double false_positive_rate);
 RcppExport SEXP _bloomjoin_rcpp_filter_keys(SEXP y_keysSEXP, SEXP x_keysSEXP, SEXP expected_elementsSEXP, SEXP false_positive_rateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< CharacterVector >::type y_keys(y_keysSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type x_keys(x_keysSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type y_keys(y_keysSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type x_keys(x_keysSEXP);
     Rcpp::traits::input_parameter< size_t >::type expected_elements(expected_elementsSEXP);
     Rcpp::traits::input_parameter< double >::type false_positive_rate(false_positive_rateSEXP);
     rcpp_result_gen = Rcpp::wrap(rcpp_filter_keys(y_keys, x_keys, expected_elements, false_positive_rate));
@@ -35,12 +35,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// hash_keys32_cols
+IntegerVector hash_keys32_cols(List cols, bool normalize_strings, bool na_sentinel);
+RcppExport SEXP _bloomjoin_hash_keys32_cols(SEXP colsSEXP, SEXP normalize_stringsSEXP, SEXP na_sentinelSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type cols(colsSEXP);
+    Rcpp::traits::input_parameter< bool >::type normalize_strings(normalize_stringsSEXP);
+    Rcpp::traits::input_parameter< bool >::type na_sentinel(na_sentinelSEXP);
+    rcpp_result_gen = Rcpp::wrap(hash_keys32_cols(cols, normalize_strings, na_sentinel));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_blm_module();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_bloomjoin_rcpp_filter_keys", (DL_FUNC) &_bloomjoin_rcpp_filter_keys, 4},
     {"_bloomjoin_rcpp_hash_join_keys", (DL_FUNC) &_bloomjoin_rcpp_hash_join_keys, 1},
+    {"_bloomjoin_hash_keys32_cols", (DL_FUNC) &_bloomjoin_hash_keys32_cols, 3},
     {"_rcpp_module_boot_blm_module", (DL_FUNC) &_rcpp_module_boot_blm_module, 0},
     {NULL, NULL, 0}
 };
