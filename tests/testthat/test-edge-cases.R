@@ -199,13 +199,13 @@ test_that("extreme false positive rates", {
   y <- tibble(id = sample(1:1000, 100, replace = FALSE), lookup = rnorm(100))
   
   # Very low FPR (should still work)
-  result_low_fpr <- bloom_join(x, y, by = "id", false_positive_rate = 0.0001)
+  result_low_fpr <- bloom_join(x, y, by = "id", fpr = 0.0001)
   expected <- inner_join(x, y, by = "id")
   
   expect_equal(nrow(result_low_fpr), nrow(expected))
   
   # Higher FPR (should still be correct, just less efficient)
-  result_high_fpr <- bloom_join(x, y, by = "id", false_positive_rate = 0.5)
+  result_high_fpr <- bloom_join(x, y, by = "id", fpr = 0.5)
   
   expect_equal(nrow(result_high_fpr), nrow(expected))
   

@@ -2,7 +2,6 @@
 // Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #include <Rcpp.h>
-#include "BloomFilter.h"
 
 using namespace Rcpp;
 
@@ -11,31 +10,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// rcpp_create_filter
-XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_elements, double false_positive_rate);
-RcppExport SEXP _bloomjoin_rcpp_create_filter(SEXP keysSEXP, SEXP expected_elementsSEXP, SEXP false_positive_rateSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< CharacterVector >::type keys(keysSEXP);
-    Rcpp::traits::input_parameter< size_t >::type expected_elements(expected_elementsSEXP);
-    Rcpp::traits::input_parameter< double >::type false_positive_rate(false_positive_rateSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpp_create_filter(keys, expected_elements, false_positive_rate));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpp_check_keys
-LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, CharacterVector keys);
-RcppExport SEXP _bloomjoin_rcpp_check_keys(SEXP filterSEXP, SEXP keysSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< XPtr<BloomFilter> >::type filter(filterSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type keys(keysSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpp_check_keys(filter, keys));
-    return rcpp_result_gen;
-END_RCPP
-}
 // rcpp_filter_keys
 LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys, size_t expected_elements, double false_positive_rate);
 RcppExport SEXP _bloomjoin_rcpp_filter_keys(SEXP y_keysSEXP, SEXP x_keysSEXP, SEXP expected_elementsSEXP, SEXP false_positive_rateSEXP) {
@@ -50,13 +24,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// rcpp_hash_join_keys
+CharacterVector rcpp_hash_join_keys(List columns);
+RcppExport SEXP _bloomjoin_rcpp_hash_join_keys(SEXP columnsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type columns(columnsSEXP);
+    rcpp_result_gen = Rcpp::wrap(rcpp_hash_join_keys(columns));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_blm_module();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_bloomjoin_rcpp_create_filter", (DL_FUNC) &_bloomjoin_rcpp_create_filter, 3},
-    {"_bloomjoin_rcpp_check_keys", (DL_FUNC) &_bloomjoin_rcpp_check_keys, 2},
     {"_bloomjoin_rcpp_filter_keys", (DL_FUNC) &_bloomjoin_rcpp_filter_keys, 4},
+    {"_bloomjoin_rcpp_hash_join_keys", (DL_FUNC) &_bloomjoin_rcpp_hash_join_keys, 1},
     {"_rcpp_module_boot_blm_module", (DL_FUNC) &_rcpp_module_boot_blm_module, 0},
     {NULL, NULL, 0}
 };

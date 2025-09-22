@@ -165,8 +165,8 @@ result1 <- bloom_join(large_x, small_y, by = "id", verbose = TRUE)
 
 # Tuned parameters for better performance
 result2 <- bloom_join(large_x, small_y, by = "id", 
-                     bloom_size = 2000,           # Larger filter
-                     false_positive_rate = 0.001, # Lower FPR
+                     n_hint = list(y = 2000),     # Hint for expected cardinality
+                     fpr = 0.001, # Lower FPR
                      verbose = TRUE)
 
 # Compare filter effectiveness
@@ -246,7 +246,7 @@ for (scenario in scenarios) {
 ## Best Practices
 
 1. **Use for appropriate scenarios**: Large datasets with low selectivity
-2. **Tune parameters**: Adjust `bloom_size` and `false_positive_rate` for your data
+2. **Tune parameters**: Adjust `fpr` and optional `n_hint` values for your data
 3. **Monitor performance**: Use `verbose = TRUE` to see filter effectiveness
 4. **Consider join type**: Inner/semi/anti joins benefit most
 5. **Test with your data**: Benchmark against standard joins for your use case

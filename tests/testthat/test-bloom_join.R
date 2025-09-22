@@ -201,6 +201,31 @@ test_that("bloom_join handles duplicated keys correctly", {
   expect_equal(nrow(result_bloom), 36)
 })
 
+test_that("prefilter side selection and metadata are exposed", {
+  set.seed(123)
+  x <- tibble(
+    id = sample(1:10000, 6000, replace = TRUE),
+    value_x = rnorm(6000)
+  )
+
+  y <- tibble(
+    id = sample(1:500, 2000, replace = TRUE),
+    value_y = rnorm(2000)
+  )
+
+  result <- bloom_join(x, y, by = "id", prefilter_side = "x")
+  metadata <- attr(result, "bloom_metadata")
+  expect_true(metadata$bloom_filter_used)
+  expect_identical(metadata$chosen_prefilter_side, "x")
+  expect_true(metadata$filtered_rows_x > 0)
+})
+
+test_that("bloom_params returns sensible defaults", {
+  params <- bloom_params(1e5, p = 0.01)
+  expect_equal(params$k, as.integer(round((params$m / 1e5) * log(2))), tolerance = 1)
+  expect_true(params$m > 0)
+})
+
 # Test with NA values in join columns
 test_that("bloom_join handles NA values in join columns", {
   # Create test data with NAs
@@ -224,32 +249,26 @@ test_that("bloom_join handles NA values in join columns", {
   expect_equal(sort(result_bloom$id, na.last = TRUE), sort(result_std$id, na.last = TRUE))
 })
 
-# Test with different bloom_size parameters
-test_that("bloom_join works with custom bloom_size parameter", {
-  # Create test data
+# Test with different false positive rates
+test_that("bloom_join respects fpr parameter without changing results", {
   x <- tibble(
-    id = 1:1000,
-    value_x = rnorm(1000)
+    id = sample(1:2000, 5000, replace = TRUE),
+    value_x = rnorm(5000)
   )
 
   y <- tibble(
-    id = 501:1500,
-    value_y = rnorm(1000)
+    id = sample(1:2000, 400, replace = FALSE),
+    value_y = rnorm(400)
   )
 
-  # Test with smaller bloom size
-  result_small <- bloom_join(x, y, by = "id", bloom_size = 100)
+  result_low <- bloom_join(x, y, by = "id", fpr = 0.001)
+  result_high <- bloom_join(x, y, by = "id", fpr = 0.1)
 
-  # Test with larger bloom size
-  result_large <- bloom_join(x, y, by = "id", bloom_size = 10000)
-
-  # Test with default bloom size
-  result_default <- bloom_join(x, y, by = "id")
-
-  # All should produce the same result
-  expect_equal(nrow(result_small), nrow(result_default))
-  expect_equal(nrow(result_large), nrow(result_default))
-  expect_equal(sort(result_small$id), sort(result_default$id))
+  expect_equal(nrow(result_low), nrow(result_high))
+  meta_low <- attr(result_low, "bloom_metadata")
+  meta_high <- attr(result_high, "bloom_metadata")
+  expect_equal(meta_low$fpr, 0.001, tolerance = 1e-12)
+  expect_equal(meta_high$fpr, 0.1, tolerance = 1e-12)
 })
 
 # Test with extreme data sizes
@@ -309,8 +328,9 @@ test_that("bloom_join produces identical results to dplyr joins", {
   # Remove the bloomjoin class for comparison
   bloom_result_no_class <- bloom_result
   class(bloom_result_no_class) <- class(dplyr_result)
+  attr(bloom_result_no_class, "bloom_metadata") <- NULL
   expect_identical(bloom_result_no_class, dplyr_result)
-  
+
   # Verify that bloomjoin class is present
   expect_true("bloomjoin" %in% class(bloom_result))
 })

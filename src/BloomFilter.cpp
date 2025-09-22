@@ -1,6 +1,12 @@
 #include "BloomFilter.h"
 // [[Rcpp::plugins(cpp11)]]
 
+#include <Rmath.h>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+
 // MurmurHash3 implementation (improved)
 uint32_t MurmurHash3(const std::string& key, uint32_t seed) {
   const uint32_t c1 = 0xcc9e2d51;
@@ -215,7 +221,6 @@ RCPP_MODULE(blm_module) {
 }
 
 // Function to create a filter and add keys efficiently
-// [[Rcpp::export]]
 XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_elements,
                                      double false_positive_rate = 0.01) {
   // Calculate unique elements for better sizing
@@ -247,7 +252,6 @@ XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_eleme
 }
 
 // Function to check keys against the filter
-// [[Rcpp::export]]
 LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, CharacterVector keys) {
   LogicalVector result(keys.size());
 
@@ -289,6 +293,132 @@ LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
       result[i] = filter->contains(key);
     }
   }
-  
+
   return result;
+}
+
+namespace {
+
+inline uint64_t splitmix64(uint64_t x) {
+  x += 0x9e3779b97f4a7c15ULL;
+  x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+  return x ^ (x >> 31);
+}
+
+inline uint64_t combine_hash(uint64_t current, uint64_t value) {
+  return splitmix64(current ^ (value + 0x9e3779b97f4a7c15ULL + (current << 6) + (current >> 2)));
+}
+
+inline uint64_t hash_string_data(const char* data, size_t length) {
+  uint64_t hash = 1469598103934665603ULL; // FNV offset basis
+  for (size_t i = 0; i < length; ++i) {
+    hash ^= static_cast<unsigned char>(data[i]);
+    hash *= 1099511628211ULL; // FNV prime
+  }
+  return hash;
+}
+
+inline uint64_t hash_integer_value(int value) {
+  if (value == NA_INTEGER) {
+    return 0x9ae16a3b2f90404fULL;
+  }
+  return splitmix64(static_cast<uint64_t>(static_cast<int64_t>(value)));
+}
+
+inline uint64_t hash_logical_value(int value) {
+  if (value == NA_LOGICAL) {
+    return 0x243f6a8885a308d3ULL;
+  }
+  return value ? 0x13198a2e03707344ULL : 0xa4093822299f31d0ULL;
+}
+
+inline uint64_t hash_double_value(double value) {
+  if (ISNA(value)) {
+    return 0x3bd39e10cb0ef593ULL;
+  }
+  if (ISNAN(value)) {
+    return 0xc0f2f6c9c2fa1a1bULL;
+  }
+  if (!R_finite(value)) {
+    return value > 0 ? 0x5a827999fcef3247ULL : 0x6ed9eba1e6b9f48dULL;
+  }
+  if (value == 0.0) {
+    return 0ULL;
+  }
+  union {
+    double d;
+    uint64_t u;
+  } converter;
+  converter.d = value;
+  return splitmix64(converter.u);
+}
+
+inline uint64_t hash_character_value(SEXP element) {
+  if (element == NA_STRING) {
+    return 0x7f4a7c15bf58476dULL;
+  }
+  const char* data = Rf_translateCharUTF8(element);
+  size_t length = std::strlen(data);
+  return hash_string_data(data, length);
+}
+
+inline uint64_t hash_scalar(SEXP column, int index) {
+  switch (TYPEOF(column)) {
+    case INTSXP:
+      return hash_integer_value(INTEGER(column)[index]);
+    case LGLSXP:
+      return hash_logical_value(LOGICAL(column)[index]);
+    case REALSXP:
+      return hash_double_value(REAL(column)[index]);
+    case STRSXP:
+      return hash_character_value(STRING_ELT(column, index));
+    default:
+      break;
+  }
+
+  SEXP as_char = Rf_coerceVector(column, STRSXP);
+  return hash_character_value(STRING_ELT(as_char, index));
+}
+
+inline SEXP maybe_as_character(SEXP column) {
+  if (Rf_isFactor(column)) {
+    return Rf_coerceVector(column, STRSXP);
+  }
+  return column;
+}
+
+} // namespace
+
+// [[Rcpp::export]]
+CharacterVector rcpp_hash_join_keys(List columns) {
+  if (columns.size() == 0) {
+    stop("No columns supplied for hashing");
+  }
+
+  int n_rows = Rf_length(columns[0]);
+  std::vector<uint64_t> hashes(n_rows, 1469598103934665603ULL);
+
+  for (int i = 0; i < columns.size(); ++i) {
+    SEXP column = columns[i];
+    column = maybe_as_character(column);
+
+    if (Rf_length(column) != n_rows) {
+      stop("All join columns must have the same number of rows");
+    }
+
+    for (int row = 0; row < n_rows; ++row) {
+      uint64_t value_hash = hash_scalar(column, row);
+      hashes[row] = combine_hash(hashes[row], value_hash);
+    }
+  }
+
+  CharacterVector out(n_rows);
+  char buffer[17];
+  for (int i = 0; i < n_rows; ++i) {
+    std::snprintf(buffer, sizeof(buffer), "%016llx", static_cast<unsigned long long>(hashes[i]));
+    out[i] = Rf_mkCharCE(buffer, CE_UTF8);
+  }
+
+  return out;
 }

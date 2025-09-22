@@ -1,16 +1,27 @@
-#' BloomJoin: Efficient data.frame joins using Bloom filters
+#' BloomJoin: Efficient data.frame joins using probabilistic prefilters
 #'
 #' @description
-#' A package that provides optimized join operations for large data frames using
-#' Bloom filters to reduce memory usage and improve performance. The Bloom filter is
-#' used to pre-filter rows that won't match in the final join operation, significantly
-#' reducing the computational cost for large datasets with low overlap.
+#' `bloom_join()` wraps the standard dplyr join verbs with a probabilistic
+#' pre-filter stage implemented in C++ via Rcpp. The filter trims the rows that
+#' reach the expensive join when the overlap between the two tables is small,
+#' yielding faster joins without changing the final result.
 #'
 #' @details
-#' The main function in this package is \code{\link{bloom_join}}, which implements
-#' various types of joins (inner, left, right, full, semi, anti) using Bloom filters
-#' to improve performance. This is particularly useful for large datasets where the
-#' join operation would otherwise be memory-intensive and slow.
+#' The exported surface mirrors the dplyr join verbs while adding controls for
+#' the pre-filter:
+#'
+#' * `engine` selects the probabilistic data structure (currently only Bloom
+#'   filters are implemented).
+#' * `prefilter_side` decides which input will be filtered before calling the
+#'   underlying join.
+#' * `fpr` configures the target false positive rate for the Bloom filter.
+#' * `n_hint` allows callers to pass optional distinct-count hints for the join
+#'   keys which helps size the filter without extra scans.
+#'
+#' The function automatically samples the key columns to estimate distinct
+#' counts, chooses which side to pre-filter when `prefilter_side = "auto"`, and
+#' falls back to the raw dplyr join when the Bloom filter would not remove enough
+#' rows to pay for its construction.
 #'
 #' @importFrom dplyr inner_join left_join right_join full_join semi_join anti_join
 #' @importFrom Rcpp sourceCpp evalCpp
@@ -19,490 +30,422 @@
 #' @name bloomjoin
 "_PACKAGE"
 
-#' Join two data frames using a Bloom filter implemented with Rcpp
+#' Join two data frames using a Bloom filter pre-filter
 #'
-#' This function uses a high-performance Rcpp implementation of Bloom filters to efficiently join
-#' large data frames. The Bloom filter is used to pre-filter the left data frame, reducing the
-#' number of comparisons needed for the actual join.
+#' @param x,y Data frames to join.
+#' @param by A character vector or named character vector specifying the join
+#'   columns, just like the `by` argument in the dplyr join verbs.
+#' @param type Type of join to perform. One of `"inner"`, `"left"`, `"right"`,
+#'   `"full"`, `"semi"`, or `"anti"`.
+#' @param engine Probabilistic pre-filter to use. Currently only `"bloom"` is
+#'   implemented; `"auto"` resolves to `"bloom"` and `"fuse"` is reserved for a
+#'   future binary-fuse implementation.
+#' @param prefilter_side Which input to pre-filter. `"x"` filters the first
+#'   table, `"y"` filters the second table, and `"auto"` picks a side based on
+#'   join semantics and distinct-count estimates.
+#' @param fpr Target false positive rate for the Bloom filter. Must be between
+#'   0 and 1.
+#' @param n_hint Optional estimated distinct counts for the join keys. Supply a
+#'   numeric scalar to use the same hint for both tables or a named list/vector
+#'   with entries `x` and/or `y`.
+#' @param verbose Logical flag controlling diagnostic output.
 #'
-#' @param x A data frame
-#' @param y A data frame
-#' @param by A character vector of variables to join by
-#' @param type Type of join: "inner", "left", "right", "full", "semi", or "anti"
-#' @param bloom_size Size of the Bloom filter. If NULL, will be automatically calculated
-#' @param false_positive_rate False positive rate for the Bloom filter (default: 0.01)
-#' @param verbose Logical, whether to print performance information (default: FALSE)
-#'
-#' @return A joined data frame with a class of "bloomjoin"
+#' @return A data frame identical to the corresponding dplyr join with an
+#'   additional `"bloomjoin"` class and a `bloom_metadata` attribute describing
+#'   the pre-filter decision.
 #' @export
 #'
 #' @examples
 #' x <- data.frame(id = 1:100000, value_x = rnorm(100000))
 #' y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
-#' result <- bloom_join(x, y, by = "id")
-bloom_join <- function(x, y, by = NULL, type = "inner",
-                       bloom_size = NULL, false_positive_rate = 0.01, verbose = FALSE) {
-  
-  # Validate inputs and prepare join parameters
-  join_params <- validate_and_prepare_join(x, y, by, type, false_positive_rate, verbose)
-  
-  # Early exit for special cases
-  if (join_params$should_skip_bloom) {
-    result <- join_params$result
-    class(result) <- c("bloomjoin", class(result))
-    return(result)
+#' bloom_join(x, y, by = "id", verbose = TRUE)
+bloom_join <- function(
+    x,
+    y,
+    by = NULL,
+    type = c("inner", "left", "right", "full", "semi", "anti"),
+    engine = c("auto", "bloom", "fuse"),
+    prefilter_side = c("auto", "x", "y"),
+    fpr = 0.01,
+    n_hint = NULL,
+    verbose = FALSE
+) {
+  valid_types <- c("inner", "left", "right", "full", "semi", "anti")
+  type_input <- type[1]
+  type <- tolower(type_input)
+  if (!type %in% valid_types) {
+    stop("Invalid join type '", type_input, "'")
   }
-  
-  # Extract prepared parameters
-  x <- join_params$x
-  y <- join_params$y
-  by <- join_params$by
-  join_col <- join_params$join_col
-  temp_join_cols <- join_params$temp_join_cols
-  orig_by <- join_params$orig_by
-  
-  start_time <- if (verbose) Sys.time() else NULL
+  engine <- match.arg(engine)
+  prefilter_side <- match.arg(prefilter_side)
 
-  # Join column preparation is now handled in validate_and_prepare_join
+  validate_join_inputs(x, y, type, fpr)
 
-  # Only use Bloom filter when it will actually improve performance
-  bloom_beneficial <- should_use_bloom_filter(x, y, type)
-  
-  # Skip Bloom filter for small datasets where overhead exceeds benefits
-  if (nrow(x) < 1000 && nrow(y) < 1000) {
-    if (verbose) {
-      message("Small dataset detected - using standard join for better performance")
-    }
-    
-    # Clean up composite keys if they were created
-    if (join_col == ".composite_key") {
-      x[".composite_key"] <- NULL
-      y[".composite_key"] <- NULL
-    }
-    
-    result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
-    class(result) <- c("bloomjoin", class(result))
-    return(result)
-  }
+  join_info <- resolve_join_columns(x, y, by)
+  keys_x <- compute_hashed_keys(x, join_info$x_cols)
+  keys_y <- compute_hashed_keys(y, join_info$y_cols)
 
-  # For anti-joins, skip Bloom filter entirely and go straight to standard join
-  if (type == "anti") {
-    # Clean up composite keys if created
-    if (join_col == ".composite_key") {
-      x[".composite_key"] <- NULL
-      y[".composite_key"] <- NULL
-    }
-    
-    result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
-    
-    if (verbose) {
-      end_time <- Sys.time()
-      elapsed <- as.numeric(end_time - start_time, units = "secs")
-      message("Note: ANTI join performed - Bloom filters cannot provide pre-filtering benefits due to false positives")
-      message(sprintf("Bloom join completed in %.3f seconds", elapsed))
-    }
-    
-    class(result) <- c("bloomjoin", class(result))
-    
-    # Only add metadata for anti-joins if verbose mode is enabled
-    if (verbose) {
-      attr(result, "bloom_metadata") <- list(
-        original_rows_x = nrow(x),
-        original_rows_y = nrow(y),
-        join_type = type,
-        bloom_filter_used = FALSE,
-        note = "Anti-joins bypass Bloom filters due to false positive limitations"
-      )
-    }
-    return(result)
-  }
+  hints <- normalize_n_hint(n_hint)
+  distinct_x <- estimate_distinct_count(keys_x, hints$x)
+  distinct_y <- estimate_distinct_count(keys_y, hints$y)
 
-  # Get keys from y table
-  keys_in_y <- if (join_col == ".composite_key") {
-    as.character(y$.composite_key)
-  } else {
-    as.character(y[[join_col]])
-  }
+  plan <- plan_prefilter(
+    type = type,
+    engine = engine,
+    prefilter_side = prefilter_side,
+    n_x = nrow(x),
+    n_y = nrow(y),
+    distinct_x = distinct_x,
+    distinct_y = distinct_y,
+    fpr = fpr,
+    keys_x = keys_x,
+    keys_y = keys_y,
+    verbose = verbose
+  )
 
-  # Get keys to check from x table
-  keys_to_check <- if (join_col == ".composite_key") {
-    as.character(x$.composite_key)
-  } else {
-    as.character(x[[join_col]])
-  }
+  execution <- execute_join_plan(
+    plan = plan,
+    x = x,
+    y = y,
+    by_spec = join_info$by_spec,
+    type = type,
+    keys_x = keys_x,
+    keys_y = keys_y,
+    fpr = fpr,
+    verbose = verbose
+  )
 
-  # Determine optimal bloom filter size if not specified
-  if (is.null(bloom_size)) {
-    # Use the cardinality of unique keys in y, but be smarter about it
-    unique_y_keys <- unique(keys_in_y[!is.na(keys_in_y)])
-    bloom_size <- max(length(unique_y_keys), 100) # Minimum size for stability
-    
-    # Adjust based on dataset sizes
-    if (length(keys_to_check) > 10000 && length(unique_y_keys) < 1000) {
-      bloom_size <- bloom_size * 2 # Larger filter for better performance with large x
-    }
-  }
-  
-  if (verbose) {
-    message(sprintf("Creating Bloom filter: %d unique keys in y, filter size: %d, FPR: %.4f", 
-                   length(unique(keys_in_y[!is.na(keys_in_y)])), bloom_size, false_positive_rate))
-  }
+  result <- execution$result
+  metadata <- execution$metadata
 
-  # Call the improved Rcpp function to create the filter and check keys
-  is_in_filter <- rcpp_filter_keys(keys_in_y, keys_to_check, bloom_size, false_positive_rate)
-  
-  # Calculate filter effectiveness
-  filtered_count <- sum(is_in_filter)
-  original_count <- length(keys_to_check)
-  reduction_ratio <- 1 - (filtered_count / original_count)
-  
-  if (verbose) {
-    message(sprintf("Bloom filter reduced dataset from %d to %d rows (%.1f%% reduction)", 
-                   original_count, filtered_count, reduction_ratio * 100))
-  }
-
-  # For inner, semi joins: filter x first, then join
-  # Note: Anti-joins cannot use Bloom filters for pre-filtering due to false positives
-  if (type %in% c("inner", "semi")) {
-    # Filter the larger data frame
-    x_filtered <- x[is_in_filter, , drop = FALSE]
-
-    # If we created a composite key, we need to remove it before the final join
-    if (join_col == ".composite_key") {
-      x_filtered[".composite_key"] <- NULL
-      y[".composite_key"] <- NULL
-    }
-
-    # Perform the final join
-    result <- perform_standard_join(x_filtered, y, if (exists("orig_by")) orig_by else by, type)
-  } else {
-    # For left, right, full, anti joins: use Bloom filter as a hint to optimize the join order
-    # but still do the full join to preserve all rows
-    # Note: Anti-joins cannot use Bloom filters for pre-filtering due to false positives
-    
-    # Clean up composite keys if created
-    if (join_col == ".composite_key") {
-      x[".composite_key"] <- NULL
-      y[".composite_key"] <- NULL
-    }
-    
-    # For these join types, we can't pre-filter, so just do the standard join
-    # The Bloom filter information could be used for join algorithm selection in the future
-    result <- perform_standard_join(x, y, if (exists("orig_by")) orig_by else by, type)
-    
-    if (verbose) {
-      message(sprintf("Note: %s join performed - Bloom filter used for analysis only", toupper(type)))
-    }
-  }
-
-  # Remove temporary columns if we created them
-  if (exists("temp_join_cols")) {
-    result[temp_join_cols] <- NULL
-  }
-  
-  # Remove any composite key columns that may have leaked through (including suffixed versions)
-  composite_cols <- names(result)[grepl("composite_key", names(result))]
-  if (length(composite_cols) > 0) {
-    if (verbose) {
-      message("Found composite key columns to remove: ", paste(composite_cols, collapse = ", "))
-    }
-    for (col in composite_cols) {
-      result[[col]] <- NULL
-    }
-  }
-
-  # Keep result as standard data frame to match dplyr output exactly
-  
-  if (verbose) {
-    end_time <- Sys.time()
-    elapsed <- as.numeric(end_time - start_time, units = "secs")
-    message(sprintf("Bloom join completed in %.3f seconds", elapsed))
-  }
-  
-  # Add bloomjoin class
-  class(result) <- c("bloomjoin", class(result))
-  
-  # Only add metadata if verbose mode is enabled - to match dplyr output exactly
-  if (verbose) {
-    if (type %in% c("inner", "semi")) {
-      # For joins that benefit from filtering
-      attr(result, "bloom_metadata") <- list(
-        original_rows_x = nrow(x),
-        original_rows_y = nrow(y),
-        filtered_rows_x = sum(is_in_filter),
-        bloom_size = bloom_size,
-        false_positive_rate = false_positive_rate,
-        reduction_ratio = reduction_ratio,
-        join_type = type,
-        bloom_filter_used = TRUE
-      )
-    } else {
-      # For joins where filtering wasn't applied
-      attr(result, "bloom_metadata") <- list(
-        original_rows_x = nrow(x),
-        original_rows_y = nrow(y),
-        filtered_rows_x = nrow(x), # No filtering applied
-        bloom_size = bloom_size,
-        false_positive_rate = false_positive_rate,
-        reduction_ratio = 0, # No reduction since all rows kept
-        join_type = type,
-        bloom_filter_used = FALSE
-      )
-    }
-  }
-
-  return(result)
+  class(result) <- unique(c("bloomjoin", class(result)))
+  attr(result, "bloom_metadata") <- metadata
+  result
 }
 
-#' Determine if Bloom filter should be used for the join
+#' Compute Bloom filter parameters
 #'
-#' Internal function to decide whether a Bloom filter will be beneficial
+#' @param n Estimated number of elements that will be inserted into the filter.
+#' @param p Desired false positive rate. Defaults to 0.01.
 #'
-#' @param x A data frame
-#' @param y A data frame  
-#' @param type Type of join
+#' @return A list with the number of bits (`m`) and hash functions (`k`).
+#' @export
 #'
-#' @return Logical indicating whether to use Bloom filter
-#' @keywords internal
-should_use_bloom_filter <- function(x, y, type) {
-  # Always try to use Bloom filter for inner, semi joins
-  # These benefit from pre-filtering
-  if (type %in% c("inner", "semi")) {
-    return(TRUE)
+#' @examples
+#' bloom_params(1e6, p = 0.001)
+bloom_params <- function(n, p = 0.01) {
+  if (length(n) != 1 || !is.numeric(n) || is.na(n) || n <= 0) {
+    stop("'n' must be a positive numeric scalar")
   }
-  
-  # For anti-joins, warn that Bloom filters cannot provide pre-filtering benefits
-  if (type == "anti") {
-    if (nrow(x) > 1000) { # Only warn for larger datasets where it matters
-      warning("Anti-joins cannot use Bloom filters for pre-filtering due to false positives. Performance may be similar to standard anti_join().")
-    }
-    return(TRUE)
+  if (length(p) != 1 || !is.numeric(p) || is.na(p) || p <= 0 || p >= 1) {
+    stop("'p' must be a numeric scalar between 0 and 1")
   }
-  
-  # For left, right, full joins, warn user but still allow Bloom filter
-  # if they specifically requested it via bloomjoin()
-  if (type %in% c("left", "right", "full")) {
-    if (nrow(x) > 1000) { # Only warn for larger datasets where it matters
-      warning(sprintf("%s join with Bloom filter may not provide performance benefits since all rows from the larger table are kept", 
-                     toupper(type)))
-    }
-    return(TRUE)
-  }
-  
-  return(TRUE) # Default to using Bloom filter
+
+  m <- ceiling(-n * log(p) / (log(2)^2))
+  k <- max(1L, as.integer(round((m / n) * log(2))))
+  list(m = as.integer(m), k = k)
 }
 
-#' Validate inputs and prepare join parameters
-#' 
-#' @param x A data frame
-#' @param y A data frame
-#' @param by A character vector of variables to join by
-#' @param type Type of join
-#' @param false_positive_rate False positive rate
-#' @param verbose Logical, whether to print performance information
-#' 
-#' @return List with validation results and prepared parameters
-#' @keywords internal
-validate_and_prepare_join <- function(x, y, by, type, false_positive_rate, verbose) {
-  # Enhanced input validation with better error messages
-  validate_data_frames(x, y)
-  validate_join_parameters(type, false_positive_rate)
-  
-  # Check for empty data frames
-  if (nrow(x) == 0 || nrow(y) == 0) {
-    warning("One or both data frames are empty. ", 
-           "x has ", nrow(x), " rows, y has ", nrow(y), " rows")
-    result <- perform_standard_join(x, y, by, type)
-    return(list(should_skip_bloom = TRUE, result = result))
-  }
-  
-  # Check for very large datasets and warn about memory usage
-  total_rows <- nrow(x) + nrow(y)
-  if (total_rows > 1000000) {
-    message("Large dataset detected (", format(total_rows, big.mark = ","), " total rows). ", 
-           "Consider using smaller false_positive_rate or chunked processing for very large datasets.")
-  }
-  
-  # Prepare join columns
-  by_result <- prepare_join_columns(x, y, by)
-  
-  return(list(
-    should_skip_bloom = FALSE,
-    by = by_result$by,
-    join_col = by_result$join_col,
-    temp_join_cols = by_result$temp_join_cols,
-    orig_by = by_result$orig_by,
-    x = by_result$x,
-    y = by_result$y
-  ))
-}
-
-#' Validate that inputs are data frames
-#' @keywords internal
-validate_data_frames <- function(x, y) {
+validate_join_inputs <- function(x, y, type, fpr) {
   if (!is.data.frame(x) || !is.data.frame(y)) {
-    x_type <- if (is.null(x)) "NULL" else class(x)[1]
-    y_type <- if (is.null(y)) "NULL" else class(y)[1]
-    
-    stop("Both x and y must be data frames.\n", 
-         "  - x is class '", x_type, "' with length ", length(x), "\n",
-         "  - y is class '", y_type, "' with length ", length(y), "\n",
-         "Convert to data.frame using:\n",
-         "  - as.data.frame() for basic conversion\n",
-         "  - tibble::as_tibble() for tibble format\n",
-         "  - data.table::setDF() for data.table objects")
+    stop("Both 'x' and 'y' must be data frames")
   }
-  
-  # Check for required columns
-  if (ncol(x) == 0) stop("Data frame x has no columns")
-  if (ncol(y) == 0) stop("Data frame y has no columns")
-}
-
-#' Validate join parameters
-#' @keywords internal  
-validate_join_parameters <- function(type, false_positive_rate) {
-  # Validate join type
+  if (ncol(x) == 0 || ncol(y) == 0) {
+    stop("Both 'x' and 'y' must have at least one column")
+  }
+  if (fpr <= 0 || fpr >= 1) {
+    stop("'fpr' must be strictly between 0 and 1")
+  }
   valid_types <- c("inner", "left", "right", "full", "semi", "anti")
   if (!type %in% valid_types) {
-    stop("Invalid join type '", type, "'.\n", 
-         "Valid types: ", paste(valid_types, collapse = ", "), "\n",
-         "Did you mean: ", find_closest_match(type, valid_types), "?")
+    stop("Invalid join type '", type, "'")
   }
-  
-  # Validate false positive rate
-  if (false_positive_rate <= 0 || false_positive_rate >= 1) {
-    stop("false_positive_rate must be between 0 and 1 (exclusive).\n", 
-         "Received: ", false_positive_rate, "\n",
-         "Common values: 0.01 (1%), 0.001 (0.1%), 0.1 (10%)")
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("The dplyr package is required for bloom_join()")
   }
 }
 
-#' Find closest match for error suggestions
-#' @keywords internal
-find_closest_match <- function(input, options) {
-  if (length(options) == 0) return("none available")
-  
-  # Simple string distance calculation
-  distances <- sapply(options, function(opt) {
-    # Use simple edit distance approximation
-    sum(strsplit(input, "")[[1]] != strsplit(opt, "")[[1]][1:min(nchar(input), nchar(opt))])
-  })
-  
-  options[which.min(distances)]
-}
-
-#' Prepare join columns and handle named vectors
-#' 
-#' @param x A data frame
-#' @param y A data frame
-#' @param by A character vector of variables to join by
-#' 
-#' @return List with prepared join columns
-#' @keywords internal
-prepare_join_columns <- function(x, y, by) {
+resolve_join_columns <- function(x, y, by) {
   orig_by <- by
-  temp_join_cols <- NULL
-  
-  # Determine the join columns
   if (is.null(by)) {
-    by <- intersect(names(x), names(y))
-    if (length(by) == 0) {
-      stop("No common variables in x and y to join by. ", 
-           "Please specify 'by' parameter explicitly")
+    common <- intersect(names(x), names(y))
+    if (length(common) == 0) {
+      stop("No common columns and no 'by' argument supplied")
     }
+    x_cols <- common
+    y_cols <- common
+    by_spec <- common
   } else if (is.character(by)) {
-    # Handle named vectors correctly
     if (!is.null(names(by)) && any(names(by) != "")) {
-      # Named vector case (different column names)
       x_cols <- names(by)
       y_cols <- unname(by)
-
-      # Check if join columns exist in respective data frames
-      if (!all(x_cols %in% names(x))) {
-        missing_x <- x_cols[!x_cols %in% names(x)]
+      missing_x <- x_cols[!x_cols %in% names(x)]
+      missing_y <- y_cols[!y_cols %in% names(y)]
+      if (length(missing_x)) {
         stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
       }
-      if (!all(y_cols %in% names(y))) {
-        missing_y <- y_cols[!y_cols %in% names(y)]
+      if (length(missing_y)) {
         stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
       }
-
-      # Create temporary columns for joining
-      temp_join_cols <- character()
-      for (i in seq_along(by)) {
-        x_col <- x_cols[i]
-        y_col <- y_cols[i]
-        temp_col <- paste0(".temp_join_", i)
-        temp_join_cols <- c(temp_join_cols, temp_col)
-        
-        x[[temp_col]] <- x[[x_col]]
-        y[[temp_col]] <- y[[y_col]]
-      }
-      by <- temp_join_cols
+      by_spec <- by
     } else {
-      # Simple character vector - check if all columns exist
-      if (!all(by %in% names(x))) {
-        missing_x <- by[!by %in% names(x)]
+      x_cols <- by
+      y_cols <- by
+      missing_x <- x_cols[!x_cols %in% names(x)]
+      missing_y <- y_cols[!y_cols %in% names(y)]
+      if (length(missing_x)) {
         stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
       }
-      if (!all(by %in% names(y))) {
-        missing_y <- by[!by %in% names(y)]
+      if (length(missing_y)) {
         stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
       }
+      by_spec <- by
     }
+  } else {
+    stop("'by' must be NULL or a character vector")
   }
 
-  # Create a single join column if multiple columns specified
-  if (length(by) > 1) {
-    # Create composite key
-    x$.composite_key <- do.call(paste, c(x[by], sep = "\001"))
-    y$.composite_key <- do.call(paste, c(y[by], sep = "\001"))
-    join_col <- ".composite_key"
-  } else {
-    join_col <- by
-  }
-  
-  return(list(
-    by = by,
-    join_col = join_col,
-    temp_join_cols = temp_join_cols,
-    orig_by = orig_by,
-    x = x,
-    y = y
-  ))
+  list(
+    by_spec = by_spec,
+    x_cols = x_cols,
+    y_cols = y_cols,
+    orig_by = orig_by
+  )
 }
 
-#' Perform standard join operations
-#'
-#' Internal function to perform standard join operations using dplyr
-#'
-#' @param x A data frame
-#' @param y A data frame
-#' @param by A character vector of variables to join by
-#' @param type Type of join: "inner", "left", "right", "full", "semi", or "anti"
-#'
-#' @return A joined data frame
-#' @keywords internal
-perform_standard_join <- function(x, y, by = NULL, type = "inner") {
-  # Check if dplyr is available
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    stop("The dplyr package is required for join operations")
+compute_hashed_keys <- function(df, cols) {
+  if (length(cols) == 0) {
+    return(character(nrow(df)))
+  }
+  column_list <- lapply(cols, function(col) df[[col]])
+  rcpp_hash_join_keys(column_list)
+}
+
+normalize_n_hint <- function(n_hint) {
+  hints <- list(x = NA_real_, y = NA_real_)
+  if (is.null(n_hint)) {
+    return(hints)
+  }
+  if (is.list(n_hint)) {
+    if (length(n_hint) == 1 && is.null(names(n_hint))) {
+      value <- as.numeric(n_hint[[1]])
+      hints$x <- value
+      hints$y <- value
+      return(hints)
+    }
+    for (nm in intersect(names(n_hint), c("x", "y"))) {
+      hints[[nm]] <- as.numeric(n_hint[[nm]])
+    }
+    return(hints)
+  }
+  if (is.numeric(n_hint)) {
+    if (length(n_hint) == 1 && is.null(names(n_hint))) {
+      hints$x <- as.numeric(n_hint)
+      hints$y <- as.numeric(n_hint)
+    } else if (!is.null(names(n_hint))) {
+      for (nm in intersect(names(n_hint), c("x", "y"))) {
+        hints[[nm]] <- as.numeric(n_hint[[nm]])
+      }
+    }
+    return(hints)
+  }
+  stop("n_hint must be NULL, numeric, or a list")
+}
+
+estimate_distinct_count <- function(keys, hint = NA_real_, sample_limit = 50000L) {
+  if (!is.na(hint)) {
+    return(max(0L, as.integer(round(hint))))
+  }
+  n <- length(keys)
+  if (n == 0) {
+    return(0L)
+  }
+  if (n <= sample_limit) {
+    return(length(unique(keys)))
+  }
+  idx <- unique(as.integer(round(seq(1, n, length.out = sample_limit))))
+  sample_unique <- length(unique(keys[idx]))
+  estimate <- round(sample_unique / length(idx) * n)
+  max(0L, as.integer(estimate))
+}
+
+estimate_selectivity <- function(probe_keys, build_keys, probe_limit = 5000L, build_limit = 50000L) {
+  if (!length(probe_keys) || !length(build_keys)) {
+    return(0)
+  }
+  probe_idx <- if (length(probe_keys) <= probe_limit) {
+    seq_along(probe_keys)
+  } else {
+    unique(as.integer(round(seq(1, length(probe_keys), length.out = probe_limit))))
+  }
+  build_idx <- if (length(build_keys) <= build_limit) {
+    seq_along(build_keys)
+  } else {
+    unique(as.integer(round(seq(1, length(build_keys), length.out = build_limit))))
+  }
+  probe_sample <- probe_keys[probe_idx]
+  build_unique <- unique(build_keys[build_idx])
+  mean(probe_sample %in% build_unique)
+}
+
+plan_prefilter <- function(type, engine, prefilter_side, n_x, n_y, distinct_x, distinct_y,
+                           fpr, keys_x, keys_y, verbose = FALSE) {
+  chosen_engine <- if (engine == "auto") "bloom" else engine
+  if (chosen_engine == "fuse") {
+    stop("engine = 'fuse' is not implemented yet")
   }
 
-  # Perform the join based on the specified type
-  if (type == "inner") {
-    return(dplyr::inner_join(x, y, by = by))
-  } else if (type == "left") {
-    return(dplyr::left_join(x, y, by = by))
-  } else if (type == "right") {
-    return(dplyr::right_join(x, y, by = by))
-  } else if (type == "full") {
-    return(dplyr::full_join(x, y, by = by))
-  } else if (type == "semi") {
-    return(dplyr::semi_join(x, y, by = by))
-  } else if (type == "anti") {
-    return(dplyr::anti_join(x, y, by = by))
-  } else {
-    stop("Unsupported join type")
+  metadata <- list(
+    join_type = type,
+    engine = chosen_engine,
+    fpr = fpr,
+    estimated_distinct_x = distinct_x,
+    estimated_distinct_y = distinct_y
+  )
+
+  target_info <- choose_prefilter_target(type, prefilter_side, n_x, n_y, distinct_x, distinct_y)
+  target <- target_info$target
+  if (is.null(target)) {
+    metadata$reason <- target_info$reason
+    metadata$bloom_filter_used <- FALSE
+    return(list(use_prefilter = FALSE, metadata = metadata))
   }
+  metadata$chosen_prefilter_side <- target
+  if (!is.null(target_info$reason)) {
+    metadata$reason <- target_info$reason
+  }
+
+  build_keys <- if (target == "x") keys_y else keys_x
+  probe_keys <- if (target == "x") keys_x else keys_y
+  build_distinct <- if (target == "x") distinct_y else distinct_x
+  probe_n <- if (target == "x") n_x else n_y
+
+  selectivity <- estimate_selectivity(probe_keys, build_keys)
+  expected_pass <- selectivity + (1 - selectivity) * fpr
+  expected_reduction <- max(0, 1 - expected_pass)
+
+  metadata$estimated_selectivity <- selectivity
+  metadata$expected_reduction <- expected_reduction
+  metadata$probe_rows <- probe_n
+
+  if (should_skip_prefilter(probe_n, build_distinct, expected_reduction)) {
+    metadata$reason <- "prefilter skip heuristic triggered"
+    metadata$bloom_filter_used <- FALSE
+    return(list(use_prefilter = FALSE, metadata = metadata))
+  }
+
+  expected_elements <- max(1L, build_distinct)
+  metadata$expected_elements <- expected_elements
+  metadata$bloom_filter_used <- TRUE
+
+  list(
+    use_prefilter = TRUE,
+    target = target,
+    expected_elements = expected_elements,
+    metadata = metadata
+  )
+}
+
+choose_prefilter_target <- function(type, prefilter_side, n_x, n_y, distinct_x, distinct_y) {
+  if (prefilter_side %in% c("x", "y")) {
+    return(list(target = prefilter_side))
+  }
+  if (type == "full") {
+    return(list(target = NULL, reason = "Full joins retain all rows"))
+  }
+  if (type %in% c("left", "semi", "anti")) {
+    return(list(target = "y", reason = "Preserving left-side row semantics"))
+  }
+  if (type == "right") {
+    return(list(target = "x", reason = "Right join retains all rows from 'y'"))
+  }
+  if (n_x == 0 || n_y == 0) {
+    return(list(target = NULL, reason = "One of the inputs has zero rows"))
+  }
+  density_x <- n_x / max(1, distinct_y)
+  density_y <- n_y / max(1, distinct_x)
+  if (density_x >= density_y) {
+    list(target = "x", reason = "Auto-selected to prefilter 'x'")
+  } else {
+    list(target = "y", reason = "Auto-selected to prefilter 'y'")
+  }
+}
+
+should_skip_prefilter <- function(probe_n, build_distinct, expected_reduction) {
+  if (probe_n == 0 || build_distinct == 0) {
+    return(TRUE)
+  }
+  if (probe_n < 1024) {
+    return(TRUE)
+  }
+  if (build_distinct < 16) {
+    return(TRUE)
+  }
+  if (expected_reduction <= 0.02) {
+    return(TRUE)
+  }
+  FALSE
+}
+
+execute_join_plan <- function(plan, x, y, by_spec, type, keys_x, keys_y, fpr, verbose = FALSE) {
+  metadata <- plan$metadata
+  if (!isTRUE(plan$use_prefilter)) {
+    if (verbose) {
+      message("Skipping Bloom pre-filter: ", metadata$reason %||% "heuristic disabled")
+    }
+    result <- perform_standard_join(x, y, by_spec, type)
+    metadata$filtered_rows_x <- 0L
+    metadata$filtered_rows_y <- 0L
+    metadata$reduction_ratio <- 0
+    return(list(result = result, metadata = metadata))
+  }
+
+  target <- plan$target
+  if (target == "x") {
+    keep <- rcpp_filter_keys(keys_y, keys_x, plan$expected_elements, fpr)
+    if (verbose) {
+      message(sprintf("Prefilter retained %d of %d rows from 'x'", sum(keep), length(keep)))
+    }
+    filtered_x <- x[keep, , drop = FALSE]
+    result <- perform_standard_join(filtered_x, y, by_spec, type)
+    metadata$filtered_rows_x <- sum(!keep)
+    metadata$filtered_rows_y <- 0L
+    metadata$retained_rows <- sum(keep)
+    metadata$reduction_ratio <- if (length(keep)) mean(!keep) else 0
+  } else {
+    keep <- rcpp_filter_keys(keys_x, keys_y, plan$expected_elements, fpr)
+    if (verbose) {
+      message(sprintf("Prefilter retained %d of %d rows from 'y'", sum(keep), length(keep)))
+    }
+    filtered_y <- y[keep, , drop = FALSE]
+    result <- perform_standard_join(x, filtered_y, by_spec, type)
+    metadata$filtered_rows_x <- 0L
+    metadata$filtered_rows_y <- sum(!keep)
+    metadata$retained_rows <- sum(keep)
+    metadata$reduction_ratio <- if (length(keep)) mean(!keep) else 0
+  }
+  metadata$bloom_filter_used <- TRUE
+  list(result = result, metadata = metadata)
+}
+
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+perform_standard_join <- function(x, y, by = NULL, type = "inner") {
+  args <- list(x = x, y = y, by = by)
+  if (type %in% c("inner", "left", "right", "full")) {
+    args$relationship <- "many-to-many"
+  }
+
+  switch(
+    type,
+    inner = do.call(dplyr::inner_join, args),
+    left = do.call(dplyr::left_join, args),
+    right = do.call(dplyr::right_join, args),
+    full = do.call(dplyr::full_join, args),
+    semi = dplyr::semi_join(x, y, by = by),
+    anti = dplyr::anti_join(x, y, by = by),
+    stop("Unsupported join type")
+  )
 }
