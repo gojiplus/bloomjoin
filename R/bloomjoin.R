@@ -215,10 +215,9 @@ resolve_join_columns <- function(x, y, by) {
 
 compute_hashed_keys <- function(df, cols) {
   if (length(cols) == 0) {
-    return(character(nrow(df)))
+    return(integer(nrow(df)))
   }
-  column_list <- lapply(cols, function(col) df[[col]])
-  rcpp_hash_join_keys(column_list)
+  hash_keys32(df, cols)
 }
 
 normalize_n_hint <- function(n_hint) {

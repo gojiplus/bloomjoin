@@ -112,6 +112,16 @@ uint32_t DoubleHash(const std::string& key, uint32_t seed, uint32_t i, size_t m)
   return (h1 + i * h2) & (m - 1);
 }
 
+inline std::string encode_int32(int value) {
+  uint32_t v = static_cast<uint32_t>(value);
+  char buf[4];
+  buf[0] = static_cast<char>((v >> 24) & 0xFF);
+  buf[1] = static_cast<char>((v >> 16) & 0xFF);
+  buf[2] = static_cast<char>((v >> 8) & 0xFF);
+  buf[3] = static_cast<char>(v & 0xFF);
+  return std::string(buf, 4);
+}
+
 
 // Check if key is NA-like
 bool BloomFilter::is_na_like(const std::string& key) {
@@ -221,13 +231,13 @@ RCPP_MODULE(blm_module) {
 }
 
 // Function to create a filter and add keys efficiently
-XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_elements,
+XPtr<BloomFilter> rcpp_create_filter(IntegerVector keys, size_t expected_elements,
                                      double false_positive_rate = 0.01) {
   // Calculate unique elements for better sizing
   std::unordered_set<std::string> unique_keys;
   for (int i = 0; i < keys.size(); i++) {
-    if (!CharacterVector::is_na(keys[i])) {
-      unique_keys.insert(as<std::string>(keys[i]));
+    if (!IntegerVector::is_na(keys[i])) {
+      unique_keys.insert(encode_int32(keys[i]));
     }
   }
   
@@ -242,8 +252,8 @@ XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_eleme
 
   // Add all keys (including duplicates for completeness)
   for (int i = 0; i < keys.size(); i++) {
-    if (!CharacterVector::is_na(keys[i])) {
-      std::string key = as<std::string>(keys[i]);
+    if (!IntegerVector::is_na(keys[i])) {
+      std::string key = encode_int32(keys[i]);
       filter->add(key);
     }
   }
@@ -252,11 +262,11 @@ XPtr<BloomFilter> rcpp_create_filter(CharacterVector keys, size_t expected_eleme
 }
 
 // Function to check keys against the filter
-LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, CharacterVector keys) {
+LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, IntegerVector keys) {
   LogicalVector result(keys.size());
 
   for (int i = 0; i < keys.size(); i++) {
-    std::string key = as<std::string>(keys[i]);
+    std::string key = encode_int32(keys[i]);
     result[i] = filter->contains(key);
   }
 
@@ -265,7 +275,7 @@ LogicalVector rcpp_check_keys(XPtr<BloomFilter> filter, CharacterVector keys) {
 
 // Optimized batch processing function
 // [[Rcpp::export]]
-LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
+LogicalVector rcpp_filter_keys(IntegerVector y_keys, IntegerVector x_keys,
                                size_t expected_elements, double false_positive_rate = 0.01) {
   // Input validation
   if (y_keys.size() == 0) {
@@ -275,7 +285,7 @@ LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
   // Pre-check for NA values in y_keys (do this once)
   bool has_na_in_y = false;
   for (int j = 0; j < y_keys.size() && !has_na_in_y; j++) {
-    has_na_in_y = CharacterVector::is_na(y_keys[j]);
+    has_na_in_y = IntegerVector::is_na(y_keys[j]);
   }
   
   // Create the filter from y_keys with optimal sizing
@@ -285,11 +295,10 @@ LogicalVector rcpp_filter_keys(CharacterVector y_keys, CharacterVector x_keys,
   LogicalVector result(x_keys.size());
   
   for (int i = 0; i < x_keys.size(); i++) {
-    if (CharacterVector::is_na(x_keys[i])) {
+    if (IntegerVector::is_na(x_keys[i])) {
       result[i] = has_na_in_y;
     } else {
-      // Avoid string conversion by using SEXP directly when possible
-      std::string key = as<std::string>(x_keys[i]);
+      std::string key = encode_int32(x_keys[i]);
       result[i] = filter->contains(key);
     }
   }
