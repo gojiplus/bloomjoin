@@ -5,11 +5,13 @@ Authors@R: person("Gaurav Sood", email = "gsood07@gmail.com", role = c("aut", "c
 Author: Gaurav Sood [aut, cre]
 Maintainer: Gaurav Sood <gsood07@gmail.com>
 Description: Provides high-performance join operations for large data frames using
-    Bloom filters to reduce memory usage and improve performance. The package is 
+    Bloom filters to reduce memory usage and improve performance. The package is
     particularly effective when joining a large data frame with a smaller lookup table,
     and when many keys in the larger data frame don't have matches. Features include
     optimized C++ implementation, intelligent join strategy selection, comprehensive
     NA handling, and support for all standard join types.
+URL: https://soodoku.github.io/bloomjoin/, https://github.com/soodoku/bloomjoin
+BugReports: https://github.com/soodoku/bloomjoin/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
