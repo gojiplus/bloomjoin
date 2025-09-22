@@ -28,7 +28,16 @@ library(dplyr)
 library(tibble)
 library(ggplot2)
 library(microbenchmark)
-library(bench)
+
+bench_available <- requireNamespace("bench", quietly = TRUE)
+
+if (bench_available) {
+  library(bench)
+} else {
+  message(
+    "Package 'bench' not installed; memory benchmarking section will be skipped."
+  )
+}
 ```
 
 ```{r helper-functions, include = FALSE}
@@ -84,8 +93,9 @@ arranged_bloom <- as.data.frame(arranged_bloom)
 arranged_baseline <- as.data.frame(arranged_baseline)
 
 stopifnot(identical(arranged_bloom, arranged_baseline))
-=======
-stopifnot(isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE)))
+stopifnot(
+  isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE))
+)
 
 
 ## Performance Testing Framework
@@ -253,7 +263,7 @@ cat("so performance is similar to standard joins.\n")
 Let's examine memory efficiency using the `bench` package, which records peak
 memory allocations alongside execution time:
 
-```{r memory-analysis}
+```{r memory-analysis, eval = bench_available}
 cat("=== MEMORY USAGE ANALYSIS ===\n")
 
 memory_benchmark <- function(n_left, n_right, overlap_pct, iterations = 5) {
@@ -275,6 +285,13 @@ ratio <- memory_test$mem_alloc[memory_test$expression == "dplyr_join"] /
   memory_test$mem_alloc[memory_test$expression == "bloom_join"]
 
 cat("\nMemory efficiency ratio (dplyr / bloom):", round(ratio, 2), "x\n")
+```
+
+```{r memory-analysis-note, eval = !bench_available, echo = FALSE}
+cat(
+  "The optional memory benchmarking section requires the 'bench' package.\n",
+  "Install it with install.packages('bench') to reproduce these results.\n"
+)
 ```
 
 ## Performance Recommendations
