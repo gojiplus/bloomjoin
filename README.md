@@ -1,19 +1,20 @@
-# BloomJoin: Bloom Filter Based Joins
+## BloomJoin: Bloom Filter Based Joins
 
-An R package implementing Bloom filter-based joins for improved performance with large datasets.
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/bloomjoin)](https://cran.r-project.org/package=bloomjoin)
+![](http://cranlogs.r-pkg.org/badges/grand-total/bloomjoin)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/bloomjoin/)
 
-## Overview
 
 BloomJoin provides an alternative join implementation for R that uses an actual Bloom filter, implemented in C++ via Rcpp, to optimize the performance of joins between data frames. Traditional joins in R can be inefficient when dealing with large datasets, especially when one table is significantly larger than the other and the join key selectivity is low.
 
-## Installation
+### Installation
 
 ```r
 # Install from GitHub
 devtools::install_github("gojiplus/bloomjoin")
 ```
 
-## Documentation
+### Documentation
 
 The full pkgdown site, including function reference, articles, and release notes, is published automatically to GitHub Pages whenever changes are pushed to the main branch. You can browse it at <https://soodoku.github.io/bloomjoin/>. To rebuild the site locally run:
 
@@ -21,7 +22,7 @@ The full pkgdown site, including function reference, articles, and release notes
 pkgdown::build_site()
 ```
 
-## Usage
+### Usage
 
 ```r
 library(bloomjoin)
@@ -79,7 +80,7 @@ prints benchmark summaries, execute:
 Rscript inst/scripts/usage-and-benchmark.R
 ```
 
-## How It Works
+### How It Works
 
 BloomJoin uses a Bloom filter pre-processing step to optimize joins:
 
@@ -89,20 +90,20 @@ BloomJoin uses a Bloom filter pre-processing step to optimize joins:
 
 Because Bloom filters may produce false positives but never false negatives, this pre-filtering step safely reduces the number of rows that participate in the expensive join while preserving all possible matches. The underlying Bloom filter implementation is provided by a compiled Rcpp module for performance.
 
-## Performance Benchmarks
+### Performance Benchmarks
 
 See [here](https://htmlpreview.github.io/?https://github.com/gojiplus/bloomjoin/blob/main/doc/benchmarking-bloomjoin.html)
 
-## Future Work
+### Future Work
 
 1. Explore alternative probabilistic data structures (e.g., binary-fuse filters) for further memory savings
 2. Parallel processing for Bloom filter construction and probing
 3. Streaming/Chunked probing for very large inputs
 
-## License
+### License
 
 MIT
 
-## Contributing
+### Contributing
 
 Contributions welcome! Please feel free to submit a Pull Request.
