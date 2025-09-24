@@ -4,18 +4,39 @@
 \name{bloomjoin}
 \alias{bloomjoin-package}
 \alias{bloomjoin}
-\title{BloomJoin: Efficient data.frame joins using Bloom filters}
+\title{BloomJoin: Efficient data.frame joins using probabilistic prefilters}
 \description{
-A package that provides optimized join operations for large data frames using
-Bloom filters to reduce memory usage and improve performance. The Bloom filter is
-used to pre-filter rows that won't match in the final join operation, significantly
-reducing the computational cost for large datasets with low overlap.
+\code{bloom_join()} wraps the standard dplyr join verbs with a probabilistic
+pre-filter stage implemented in C++ via Rcpp. The filter trims the rows that
+reach the expensive join when the overlap between the two tables is small,
+yielding faster joins without changing the final result.
 }
 \details{
-The main function in this package is \code{\link{bloom_join}}, which implements
-various types of joins (inner, left, right, full, semi, anti) using Bloom filters
-to improve performance. This is particularly useful for large datasets where the
-join operation would otherwise be memory-intensive and slow.
+The exported surface mirrors the dplyr join verbs while adding controls for
+the pre-filter:
+\itemize{
+\item \code{engine} selects the probabilistic data structure (currently only Bloom
+filters are implemented).
+\item \code{prefilter_side} decides which input will be filtered before calling the
+underlying join.
+\item \code{fpr} configures the target false positive rate for the Bloom filter.
+\item \code{n_hint} allows callers to pass optional distinct-count hints for the join
+keys which helps size the filter without extra scans.
+}
+
+The function automatically samples the key columns to estimate distinct
+counts, chooses which side to pre-filter when \code{prefilter_side = "auto"}, and
+falls back to the raw dplyr join when the Bloom filter would not remove enough
+rows to pay for its construction.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://gojiplus.github.io/bloomjoin/}
+  \item \url{https://github.com/gojiplus/bloomjoin}
+  \item Report bugs at \url{https://github.com/gojiplus/bloomjoin/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Gaurav Sood \email{gsood07@gmail.com}

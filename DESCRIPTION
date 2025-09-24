@@ -10,8 +10,8 @@ Description: Provides high-performance join operations for large data frames usi
     and when many keys in the larger data frame don't have matches. Features include
     optimized C++ implementation, intelligent join strategy selection, comprehensive
     NA handling, and support for all standard join types.
-URL: https://soodoku.github.io/bloomjoin/, https://github.com/soodoku/bloomjoin
-BugReports: https://github.com/soodoku/bloomjoin/issues
+URL: https://gojiplus.github.io/bloomjoin/, https://github.com/gojiplus/bloomjoin
+BugReports: https://github.com/gojiplus/bloomjoin/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
