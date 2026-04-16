@@ -49,13 +49,10 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP _rcpp_module_boot_blm_module();
-
 static const R_CallMethodDef CallEntries[] = {
     {"_bloomjoin_rcpp_filter_keys", (DL_FUNC) &_bloomjoin_rcpp_filter_keys, 4},
     {"_bloomjoin_rcpp_hash_join_keys", (DL_FUNC) &_bloomjoin_rcpp_hash_join_keys, 1},
     {"_bloomjoin_hash_keys32_cols", (DL_FUNC) &_bloomjoin_hash_keys32_cols, 3},
-    {"_rcpp_module_boot_blm_module", (DL_FUNC) &_rcpp_module_boot_blm_module, 0},
     {NULL, NULL, 0}
 };
 

@@ -1,15 +1,13 @@
 // File: src/hash_keys.cpp
 //
 // Composite key -> int32 hasher for bloomjoin (Rcpp).
+// Optimized with column-major processing for better cache locality.
 // Stable across platforms & sessions. Type-aware, NA-aware.
 //
 // Exports:
 //   IntegerVector hash_keys32_cols(List cols,
 //                                  bool normalize_strings = true,
 //                                  bool na_sentinel = true);
-//
-// You will call it via an R wrapper that selects the 'by' columns
-// and handles edge classes (POSIXlt, integer64 via bit64).
 
 #include <Rcpp.h>
 #include <cstdint>
@@ -34,8 +32,8 @@ static inline uint64_t splitmix64(uint64_t x) {
 
 // FNV-1a 64-bit over byte buffer (stable, simple)
 static inline uint64_t fnv1a64(const unsigned char* data, size_t len) {
-  uint64_t h = 1469598103934665603ULL;        // offset basis
-  const uint64_t p = 1099511628211ULL;        // FNV prime
+  uint64_t h = 1469598103934665603ULL;
+  const uint64_t p = 1099511628211ULL;
   for (size_t i = 0; i < len; ++i) {
     h ^= (uint64_t)data[i];
     h *= p;
@@ -44,14 +42,11 @@ static inline uint64_t fnv1a64(const unsigned char* data, size_t len) {
 }
 
 // Canonicalize a double: map -0.0 -> +0.0; map all NA/NaN to a single sentinel.
-// Return (sentinel, true) if NA/NaN; otherwise return bit pattern with isNA=false.
 static inline std::pair<uint64_t, bool> double_bits_canonical(double d) {
-  // R provides macros for NA/NaN checks
-  if (ISNAN(d)) { // covers NA and NaN in R
-    return std::make_pair(0xD1B54A32D192ED03ULL, true); // NA sentinel
+  if (ISNAN(d)) {
+    return std::make_pair(0xD1B54A32D192ED03ULL, true);
   }
   if (d == 0.0) {
-    // canonicalize -0 to +0
     d = 0.0;
   }
   uint64_t bits = 0;
@@ -75,80 +70,11 @@ static inline uint64_t mix_in(uint64_t acc, uint64_t h) {
   return acc;
 }
 
-// Hash one element (row i) of a column to 64-bit; includes type tag mixing.
-static inline uint64_t hash_elem(SEXP col, R_xlen_t i, bool normalize_strings) {
-  // Factor first (it's INTSXP underneath, but semantics are string-based)
-  if (Rf_isFactor(col)) {
-    // codes are integers with NA as NA_INTEGER
-    int code = INTEGER(col)[i];
-    if (code == NA_INTEGER) {
-      return mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
-    }
-    SEXP lv = Rf_getAttrib(col, R_LevelsSymbol);
-    if (TYPEOF(lv) != STRSXP) {
-      // Defensive: should never happen for a valid factor
-      return mix_in(TAG_FCT, splitmix64((uint64_t)code));
-    }
-    // levels are 1-based
-    SEXP s = STRING_ELT(lv, code - 1);
-    if (s == NA_STRING) {
-      return mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
-    }
-    const char* bytes = normalize_strings ? Rf_translateCharUTF8(s) : Rf_translateChar(s);
-    uint64_t hv = fnv1a64(reinterpret_cast<const unsigned char*>(bytes), std::strlen(bytes));
-    return mix_in(TAG_FCT, splitmix64(hv));
-  }
-
-  switch (TYPEOF(col)) {
-  case INTSXP: {
-    int v = INTEGER(col)[i];
-    if (v == NA_INTEGER) {
-      return mix_in(TAG_INT, 0xD1B54A32D192ED03ULL);
-    } else {
-      uint64_t hv = splitmix64((uint64_t)(uint32_t)v);
-      return mix_in(TAG_INT, hv);
-    }
-  }
-  case LGLSXP: {
-    int v = LOGICAL(col)[i];
-    uint64_t code;
-    if (v == NA_LOGICAL)      code = 2u;
-    else if (v == 0)          code = 0u;
-    else                      code = 1u;
-    uint64_t hv = splitmix64(code);
-    return mix_in(TAG_LGL, hv);
-  }
-  case REALSXP: {
-    // Might be Date or POSIXct; both are REALSXP with class attribute
-    bool is_date  = Rf_inherits(col, "Date");
-    bool is_posix = Rf_inherits(col, "POSIXct");
-    double d = REAL(col)[i];
-    auto bits_na = double_bits_canonical(d);
-    uint64_t hv = splitmix64(bits_na.first);
-    if (is_date)   return mix_in(TAG_DATE, hv);
-    if (is_posix)  return mix_in(TAG_POSIX, hv);
-    return mix_in(TAG_DBL, hv);
-  }
-  case STRSXP: {
-    SEXP s = STRING_ELT(col, i);
-    if (s == NA_STRING) {
-      return mix_in(TAG_CHR, 0xD1B54A32D192ED03ULL);
-    }
-    const char* bytes = normalize_strings ? Rf_translateCharUTF8(s) : Rf_translateChar(s);
-    uint64_t hv = fnv1a64(reinterpret_cast<const unsigned char*>(bytes), std::strlen(bytes));
-    return mix_in(TAG_CHR, splitmix64(hv));
-  }
-  default:
-    Rcpp::stop("Unsupported column type in hash: SEXP type %d.", TYPEOF(col));
-  }
-  // not reached
-}
-
 // [[Rcpp::export]]
 IntegerVector hash_keys32_cols(List cols,
                                bool normalize_strings = true,
                                bool na_sentinel = true) {
-  (void)na_sentinel;  // retained for signature compatibility
+  (void)na_sentinel;
   if (cols.size() == 0) {
     stop("`cols` must contain at least one column.");
   }
@@ -164,24 +90,148 @@ IntegerVector hash_keys32_cols(List cols,
       stop("All columns must have the same length.");
   }
 
-  IntegerVector out(n);
-  const uint64_t seed = 0x726F626F746F726FULL; // "robotor", deterministic
+  // Initialize hash accumulators
+  const uint64_t seed = 0x726F626F746F726FULL;
+  std::vector<uint64_t> hashes(n, seed);
 
-  // Accumulate per row
-  for (R_xlen_t i = 0; i < n; ++i) {
-    uint64_t acc = seed;
-    for (R_xlen_t j = 0; j < cols.size(); ++j) {
-      SEXP col = cols[j];
-      uint64_t hv = hash_elem(col, i, normalize_strings);
-      acc = mix_in(acc, hv);
+  // Column-major processing: process each column fully before moving to next
+  // This is cache-friendly for R's column-major storage
+  for (R_xlen_t col_idx = 0; col_idx < cols.size(); ++col_idx) {
+    SEXP col = cols[col_idx];
+
+    // Factor handling
+    if (Rf_isFactor(col)) {
+      SEXP lv = Rf_getAttrib(col, R_LevelsSymbol);
+      const int* codes = INTEGER(col);
+
+      // Pre-hash all levels for efficient lookup
+      R_xlen_t n_levels = Rf_length(lv);
+      std::vector<uint64_t> level_hashes(n_levels);
+      for (R_xlen_t li = 0; li < n_levels; ++li) {
+        SEXP s = STRING_ELT(lv, li);
+        if (s == NA_STRING) {
+          level_hashes[li] = mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
+        } else {
+          const char* bytes = normalize_strings ? Rf_translateCharUTF8(s) : Rf_translateChar(s);
+          uint64_t hv = fnv1a64(reinterpret_cast<const unsigned char*>(bytes), std::strlen(bytes));
+          level_hashes[li] = mix_in(TAG_FCT, splitmix64(hv));
+        }
+      }
+
+      // Process all rows for this column
+      for (R_xlen_t i = 0; i < n; ++i) {
+        int code = codes[i];
+        uint64_t hv;
+        if (code == NA_INTEGER) {
+          hv = mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
+        } else {
+          hv = level_hashes[code - 1];
+        }
+        hashes[i] = mix_in(hashes[i], hv);
+      }
+      continue;
     }
-    // final mixdown to 32 bits
-    uint64_t final64 = splitmix64(acc);
-    uint32_t h32 = (uint32_t)(final64 ^ (final64 >> 32));
-    // cast to signed int for R (may be negative; that's OK)
-    out[i] = (int32_t)h32;
+
+    switch (TYPEOF(col)) {
+    case INTSXP: {
+      const int* data = INTEGER(col);
+      R_xlen_t i = 0;
+
+      // Process 4 at a time with prefetch
+      for (; i + 4 <= n; i += 4) {
+        if (i + 16 < n) {
+          __builtin_prefetch(&data[i + 16], 0, 0);
+        }
+        for (R_xlen_t j = 0; j < 4; ++j) {
+          int v = data[i + j];
+          uint64_t hv;
+          if (v == NA_INTEGER) {
+            hv = mix_in(TAG_INT, 0xD1B54A32D192ED03ULL);
+          } else {
+            hv = mix_in(TAG_INT, splitmix64(static_cast<uint64_t>(static_cast<uint32_t>(v))));
+          }
+          hashes[i + j] = mix_in(hashes[i + j], hv);
+        }
+      }
+      // Handle remainder
+      for (; i < n; ++i) {
+        int v = data[i];
+        uint64_t hv;
+        if (v == NA_INTEGER) {
+          hv = mix_in(TAG_INT, 0xD1B54A32D192ED03ULL);
+        } else {
+          hv = mix_in(TAG_INT, splitmix64(static_cast<uint64_t>(static_cast<uint32_t>(v))));
+        }
+        hashes[i] = mix_in(hashes[i], hv);
+      }
+      break;
+    }
+    case LGLSXP: {
+      const int* data = LOGICAL(col);
+      for (R_xlen_t i = 0; i < n; ++i) {
+        int v = data[i];
+        uint64_t code;
+        if (v == NA_LOGICAL) code = 2u;
+        else if (v == 0) code = 0u;
+        else code = 1u;
+        uint64_t hv = mix_in(TAG_LGL, splitmix64(code));
+        hashes[i] = mix_in(hashes[i], hv);
+      }
+      break;
+    }
+    case REALSXP: {
+      const double* data = REAL(col);
+      bool is_date = Rf_inherits(col, "Date");
+      bool is_posix = Rf_inherits(col, "POSIXct");
+      uint64_t tag = is_date ? TAG_DATE : (is_posix ? TAG_POSIX : TAG_DBL);
+
+      R_xlen_t i = 0;
+      // Process 4 at a time with prefetch
+      for (; i + 4 <= n; i += 4) {
+        if (i + 16 < n) {
+          __builtin_prefetch(&data[i + 16], 0, 0);
+        }
+        for (R_xlen_t j = 0; j < 4; ++j) {
+          auto bits_na = double_bits_canonical(data[i + j]);
+          uint64_t hv = mix_in(tag, splitmix64(bits_na.first));
+          hashes[i + j] = mix_in(hashes[i + j], hv);
+        }
+      }
+      // Handle remainder
+      for (; i < n; ++i) {
+        auto bits_na = double_bits_canonical(data[i]);
+        uint64_t hv = mix_in(tag, splitmix64(bits_na.first));
+        hashes[i] = mix_in(hashes[i], hv);
+      }
+      break;
+    }
+    case STRSXP: {
+      for (R_xlen_t i = 0; i < n; ++i) {
+        SEXP s = STRING_ELT(col, i);
+        uint64_t hv;
+        if (s == NA_STRING) {
+          hv = mix_in(TAG_CHR, 0xD1B54A32D192ED03ULL);
+        } else {
+          const char* bytes = normalize_strings ? Rf_translateCharUTF8(s) : Rf_translateChar(s);
+          uint64_t fhv = fnv1a64(reinterpret_cast<const unsigned char*>(bytes), std::strlen(bytes));
+          hv = mix_in(TAG_CHR, splitmix64(fhv));
+        }
+        hashes[i] = mix_in(hashes[i], hv);
+      }
+      break;
+    }
+    default:
+      Rcpp::stop("Unsupported column type in hash: SEXP type %d.", TYPEOF(col));
+    }
+  }
+
+  // Final mixdown to 32 bits
+  IntegerVector out(n);
+  for (R_xlen_t i = 0; i < n; ++i) {
+    uint64_t final64 = splitmix64(hashes[i]);
+    uint32_t h32 = static_cast<uint32_t>(final64 ^ (final64 >> 32));
+    out[i] = static_cast<int32_t>(h32);
   }
 
   return out;
 }
-

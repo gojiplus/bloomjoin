@@ -12,350 +12,148 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
-  fig.width = 8,
-  fig.height = 5
+  comment = "#>"
 )
 ```
 
 ## Overview
 
-This vignette provides a comprehensive performance analysis of the `bloomjoin` package, comparing it against standard `dplyr` joins across various scenarios. We examine when Bloom filter joins provide performance benefits and when they don't.
+This vignette compares `bloomjoin` against standard `dplyr` joins on two dimensions: **speed** and **memory**. Bloom joins excel when tables are asymmetric (large left, small right) with low overlap.
 
-```{r setup}
+```{r setup, message = FALSE}
 library(bloomjoin)
 library(dplyr)
-library(tibble)
-library(ggplot2)
-library(microbenchmark)
-
-bench_available <- requireNamespace("bench", quietly = TRUE)
-
-if (bench_available) {
-  library(bench)
-} else {
-  message(
-    "Package 'bench' not installed; memory benchmarking section will be skipped."
-  )
-}
+library(bench)
+library(knitr)
 ```
 
-```{r helper-functions, include = FALSE}
-# Helper used across multiple sections to create reproducible benchmark data
-generate_test_data <- function(n_left, n_right, overlap_pct = 0.1, seed = 123) {
+```{r helpers, include = FALSE}
+generate_data <- function(n_x, n_y, overlap, seed = 123) {
   set.seed(seed)
+  y_keys <- seq_len(n_y)
+  n_match <- round(n_x * overlap)
+  x_matching <- if (n_match > 0 && n_match <= n_y) {
+    sample(y_keys, n_match)
+  } else if (n_match > n_y) {
+    sample(y_keys, n_match, replace = TRUE)
+  } else {
+    integer(0)
+  }
+  x_nonmatching <- seq(n_y + 1, n_y + n_x - length(x_matching))
 
-  # Create overlapping keys
-  n_overlap <- round(min(n_left, n_right) * overlap_pct)
-
-  # Generate unique IDs
-  base_ids <- sample(1:(n_left + n_right), n_left + n_right - n_overlap)
-
-  left_ids <- base_ids[1:n_left]
-  right_ids <- c(
-    sample(left_ids, n_overlap),  # Overlapping IDs
-    base_ids[(n_left + 1):(n_left + n_right - n_overlap)]  # Non-overlapping
+  list(
+    x = data.frame(id = sample(c(x_matching, x_nonmatching)), xv = rnorm(n_x)),
+    y = data.frame(id = y_keys, yv = rnorm(n_y))
   )
-
-  left_df <- tibble(
-    id = left_ids,
-    left_value = rnorm(n_left),
-    left_category = sample(letters[1:5], n_left, replace = TRUE)
-  )
-
-  right_df <- tibble(
-    id = sample(right_ids),  # Shuffle for realism
-    right_value = rnorm(n_right),
-    right_flag = sample(c(TRUE, FALSE), n_right, replace = TRUE)
-  )
-
-  list(left = left_df, right = right_df, expected_matches = n_overlap)
 }
-```
 
-## Correctness Validation
-
-Before diving into performance, let's ensure that `bloom_join()` produces the
-same results as the equivalent `dplyr` verbs.
-
-```{r correctness-check}
-test_data <- generate_test_data(1000, 800, 0.15)
-
-bloom_result <- bloom_join(test_data$left, test_data$right, by = "id")
-baseline_result <- inner_join(test_data$left, test_data$right, by = "id")
-
-# Sort columns and rows to make comparison deterministic
-arranged_bloom <- arrange(bloom_result, id)
-arranged_baseline <- arrange(baseline_result, id)
-
-# Drop the bloomjoin-specific metadata/class so we compare the raw data only
-arranged_bloom <- as.data.frame(arranged_bloom)
-arranged_baseline <- as.data.frame(arranged_baseline)
-attr(arranged_bloom, "bloom_metadata") <- NULL
-
-stopifnot(identical(arranged_bloom, arranged_baseline))
-stopifnot(
-  isTRUE(all.equal(arranged_bloom, arranged_baseline, check.attributes = FALSE))
-)
-```
-
-## Performance Testing Framework
-
-Let's create a systematic benchmarking framework to test different scenarios:
-
-```{r benchmark-framework}
-# Benchmarking function using the data generation helper defined above
-run_performance_test <- function(n_left, n_right, overlap_pct, join_type = "inner", times = 5) {
-  test_data <- generate_test_data(n_left, n_right, overlap_pct)
+run_bench <- function(n_x, n_y, overlap, reps = 3) {
+  dat <- generate_data(n_x, n_y, overlap)
 
   # Warm up
-  bloom_join(test_data$left, test_data$right, by = "id", type = join_type)
-  
-  # Benchmark
-  benchmark_result <- microbenchmark(
-    bloom_join = bloom_join(test_data$left, test_data$right, by = "id", type = join_type),
-    dplyr_join = {
-      if (join_type == "inner") inner_join(test_data$left, test_data$right, by = "id")
-      else if (join_type == "left") left_join(test_data$left, test_data$right, by = "id")
-      else if (join_type == "semi") semi_join(test_data$left, test_data$right, by = "id")
-      else if (join_type == "anti") anti_join(test_data$left, test_data$right, by = "id")
-    },
-    times = times,
-    unit = "ms"
+
+  invisible(bloom_join(dat$x, dat$y, by = "id"))
+  invisible(inner_join(dat$x, dat$y, by = "id"))
+
+  result <- bench::mark(
+    bloom = bloom_join(dat$x, dat$y, by = "id"),
+    dplyr = inner_join(dat$x, dat$y, by = "id"),
+    iterations = reps,
+    check = FALSE,
+    memory = TRUE
   )
-  
-  # Get detailed performance info
-  bloom_result <- bloom_join(test_data$left, test_data$right, by = "id", 
-                           type = join_type, verbose = TRUE)
-  
-  # Extract metadata if available
-  metadata <- attr(bloom_result, "bloom_metadata")
-  
-  list(
-    benchmark = benchmark_result,
-    scenario = list(
-      n_left = n_left,
-      n_right = n_right,
-      overlap_pct = overlap_pct,
-      join_type = join_type,
-      expected_matches = test_data$expected_matches
-    ),
-    metadata = metadata
-  )
-}
-```
 
-## Scenario 1: Optimal Conditions for Bloom Joins
+  meta <- attr(bloom_join(dat$x, dat$y, by = "id"), "bloom_metadata")
 
-Large left table, small right table, low selectivity:
-
-```{r optimal-scenario}
-cat("=== OPTIMAL SCENARIO ===\n")
-cat("Large left table (50K rows), small right table (1K rows), 2% overlap\n\n")
-
-optimal_test <- run_performance_test(50000, 1000, 0.02, "inner", times = 3)
-print(optimal_test$benchmark)
-
-cat("\nPerformance Summary:\n")
-bloom_median <- median(optimal_test$benchmark[optimal_test$benchmark$expr == "bloom_join", "time"])
-dplyr_median <- median(optimal_test$benchmark[optimal_test$benchmark$expr == "dplyr_join", "time"])
-
-speedup <- dplyr_median / bloom_median
-cat("Speedup:", round(speedup, 2), "x\n")
-
-if (!is.null(optimal_test$metadata)) {
-  cat("Rows before filtering:", optimal_test$metadata$original_rows_x, "\n")
-  cat("Rows after filtering:", optimal_test$metadata$filtered_rows_x, "\n")
-  cat("Reduction ratio:", round(optimal_test$metadata$reduction_ratio * 100, 1), "%\n")
-}
-```
-
-## Scenario 2: High Selectivity (Poor for Bloom Joins)
-
-When most keys match, Bloom filters provide little benefit:
-
-```{r high-selectivity}
-cat("=== HIGH SELECTIVITY SCENARIO ===\n")
-cat("Medium datasets (10K each), 80% overlap\n\n")
-
-high_sel_test <- run_performance_test(10000, 10000, 0.80, "inner", times = 3)
-print(high_sel_test$benchmark)
-
-bloom_median <- median(high_sel_test$benchmark[high_sel_test$benchmark$expr == "bloom_join", "time"])
-dplyr_median <- median(high_sel_test$benchmark[high_sel_test$benchmark$expr == "dplyr_join", "time"])
-
-speedup <- dplyr_median / bloom_median
-cat("\nSpeedup:", round(speedup, 2), "x")
-if (speedup < 1) cat(" (slower)")
-cat("\n")
-```
-
-## Scenario 3: Small Datasets
-
-Bloom filter overhead may not be worth it for small datasets:
-
-```{r small-datasets}
-cat("=== SMALL DATASET SCENARIO ===\n") 
-cat("Small datasets (1K each), 10% overlap\n\n")
-
-small_test <- run_performance_test(1000, 1000, 0.10, "inner", times = 5)
-print(small_test$benchmark)
-
-bloom_median <- median(small_test$benchmark[small_test$benchmark$expr == "bloom_join", "time"])
-dplyr_median <- median(small_test$benchmark[small_test$benchmark$expr == "dplyr_join", "time"])
-
-speedup <- dplyr_median / bloom_median
-cat("\nSpeedup:", round(speedup, 2), "x")
-if (speedup < 1) cat(" (slower - expected for small datasets)")
-cat("\n")
-```
-
-## Join Type Performance Comparison
-
-Different join types benefit differently from Bloom filtering:
-
-```{r join-type-comparison}
-cat("=== JOIN TYPE COMPARISON ===\n")
-cat("Testing different join types with optimal conditions\n\n")
-
-join_types <- c("inner", "semi", "anti")
-join_results <- list()
-
-for (jtype in join_types) {
-  cat("Testing", jtype, "join...\n")
-  
-  # Suppress anti-join warnings for cleaner output
-  if (jtype == "anti") {
-    result <- suppressWarnings(run_performance_test(20000, 2000, 0.05, jtype, times = 3))
-  } else {
-    result <- run_performance_test(20000, 2000, 0.05, jtype, times = 3)
-  }
-  
-  bloom_time <- median(result$benchmark[result$benchmark$expr == "bloom_join", "time"])
-  dplyr_time <- median(result$benchmark[result$benchmark$expr == "dplyr_join", "time"])
-  
-  join_results[[jtype]] <- list(
-    join_type = jtype,
-    bloom_time = bloom_time,
-    dplyr_time = dplyr_time,
-    speedup = dplyr_time / bloom_time
-  )
-}
-
-# Create comparison table
-comparison_df <- do.call(rbind, lapply(join_results, function(x) {
   data.frame(
-    Join_Type = x$join_type,
-    Bloom_Time_ms = round(x$bloom_time / 1e6, 2),
-    Dplyr_Time_ms = round(x$dplyr_time / 1e6, 2),
-    Speedup = round(x$speedup, 2),
-    stringsAsFactors = FALSE
+    n_x = format(n_x, big.mark = ",", scientific = FALSE),
+    n_y = format(n_y, big.mark = ",", scientific = FALSE),
+    overlap = paste0(overlap * 100, "%"),
+    speed_ratio = round(as.numeric(result$median[2]) / as.numeric(result$median[1]), 2),
+    mem_ratio = round(as.numeric(result$mem_alloc[2]) / as.numeric(result$mem_alloc[1]), 2),
+    reduction = paste0(round(meta$reduction_ratio * 100, 0), "%")
+  )
+}
+```
+
+## Correctness
+
+First, verify that `bloom_join()` produces identical results to `dplyr`:
+
+```{r correctness}
+dat <- generate_data(5000, 500, 0.1)
+bloom_result <- bloom_join(dat$x, dat$y, by = "id") |> arrange(id)
+dplyr_result <- inner_join(dat$x, dat$y, by = "id") |> arrange(id)
+
+# Strip bloom metadata for comparison
+bloom_cmp <- as.data.frame(bloom_result)
+attr(bloom_cmp, "bloom_metadata") <- NULL
+
+all.equal(bloom_cmp, as.data.frame(dplyr_result), check.attributes = FALSE)
+```
+
+## Speed and Memory Benchmarks
+
+We test across scenarios varying table asymmetry and overlap. `speed_ratio` and `mem_ratio` > 1 means bloom wins.
+
+```{r benchmarks, message = FALSE, warning = FALSE}
+scenarios <- list(
+  c(1e6, 1e4, 0.01),
+  c(1e6, 1e4, 0.05),
+  c(5e5, 5e3, 0.02),
+  c(5e5, 5e3, 0.10),
+  c(2e5, 2e4, 0.05),
+  c(2e5, 2e4, 0.25),
+  c(1e5, 1e5, 0.10),
+  c(1e5, 1e5, 0.50)
+)
+
+results <- do.call(rbind, lapply(scenarios, function(s) {
+  run_bench(s[1], s[2], s[3], reps = 3)
+}))
+
+kable(results,
+      col.names = c("n_x", "n_y", "overlap", "speed", "memory", "reduction"),
+      align = "rrrrrr")
+```
+
+## Interpretation
+
+- **speed, memory > 1**: bloom wins (dplyr_time / bloom_time)
+- **reduction**: % of rows filtered out before join — explains memory savings
+
+High reduction means fewer rows held in memory during the join. When reduction is low, Bloom filter overhead dominates and dplyr wins.
+
+## When to Use Bloom Joins
+
+| Condition | Bloom benefit |
+|-----------|---------------|
+| Large x, small y (10:1+) | Strong |
+| Low overlap (<25%) | Strong |
+| Equal-sized tables | None (use dplyr) |
+| High overlap (>50%) | None (use dplyr) |
+
+## Tuning
+
+The `fpr` parameter controls the false positive rate. Lower values reduce false positives but increase filter size:
+
+```{r tuning, message = FALSE}
+dat <- generate_data(50000, 5000, 0.05)
+
+fpr_results <- do.call(rbind, lapply(c(0.001, 0.01, 0.1), function(fpr) {
+  result <- bench::mark(
+    bloom_join(dat$x, dat$y, by = "id", fpr = fpr),
+    iterations = 3,
+    check = FALSE
+  )
+  data.frame(
+    fpr = fpr,
+    median_ms = round(as.numeric(result$median) * 1000, 1),
+    mem_mb = round(as.numeric(result$mem_alloc) / 1024^2, 1)
   )
 }))
 
-print(comparison_df)
-
-cat("\nNote: Anti-joins cannot use Bloom filters for pre-filtering,\n")
-cat("so performance is similar to standard joins.\n")
+kable(fpr_results, col.names = c("FPR", "Time (ms)", "Memory (MB)"))
 ```
 
-## Memory Usage Analysis
-
-Let's examine memory efficiency using the `bench` package, which records peak
-memory allocations alongside execution time:
-
-```{r memory-analysis, eval = bench_available}
-cat("=== MEMORY USAGE ANALYSIS ===\n")
-
-memory_benchmark <- function(n_left, n_right, overlap_pct, iterations = 5) {
-  test_data <- generate_test_data(n_left, n_right, overlap_pct)
-
-  bench::mark(
-    bloom_join = bloom_join(test_data$left, test_data$right, by = "id"),
-    dplyr_join = inner_join(test_data$left, test_data$right, by = "id"),
-    iterations = iterations,
-    check = FALSE
-  )
-}
-
-memory_test <- memory_benchmark(25000, 2500, 0.08, iterations = 5)
-
-print(memory_test[, c("expression", "median", "mem_alloc", "gc")])
-
-ratio <- memory_test$mem_alloc[memory_test$expression == "dplyr_join"] /
-  memory_test$mem_alloc[memory_test$expression == "bloom_join"]
-
-cat("\nMemory efficiency ratio (dplyr / bloom):", round(ratio, 2), "x\n")
-```
-
-```{r memory-analysis-note, eval = !bench_available, echo = FALSE}
-cat(
-  "The optional memory benchmarking section requires the 'bench' package.\n",
-  "Install it with install.packages('bench') to reproduce these results.\n"
-)
-```
-
-## Performance Recommendations
-
-Based on our analysis:
-
-### ✅ **Use Bloom Joins When:**
-
-1. **Large datasets** (>10K rows)
-2. **Low selectivity** (<25% overlap) 
-3. **Inner or semi joins** (maximum benefit)
-4. **Memory constrained** environments
-5. **Asymmetric sizes** (large left, small right table)
-
-### ⚠️ **Consider Alternatives When:**
-
-1. **Small datasets** (<1K rows)
-2. **High selectivity** (>50% overlap)
-3. **Anti joins** (no pre-filtering benefit)
-4. **Left/right/full joins** (limited benefit)
-
-## Advanced Tuning
-
-For optimal performance, tune the Bloom filter parameters:
-
-```{r parameter-tuning}
-cat("=== PARAMETER TUNING ===\n")
-
-# Test different false positive rates
-test_data <- generate_test_data(30000, 3000, 0.03)
-
-fpr_values <- c(0.001, 0.01, 0.1)
-tuning_results <- list()
-
-for (fpr in fpr_values) {
-  start_time <- Sys.time()
-  result <- bloom_join(test_data$left, test_data$right, by = "id", 
-                      fpr = fpr, verbose = TRUE)
-  end_time <- Sys.time()
-  
-  tuning_results[[as.character(fpr)]] <- list(
-    fpr = fpr,
-    time = as.numeric(end_time - start_time, units = "secs"),
-    result_rows = nrow(result)
-  )
-}
-
-cat("\nFalse Positive Rate Comparison:\n")
-for (fpr in names(tuning_results)) {
-  result <- tuning_results[[fpr]]
-  cat(sprintf("FPR: %s, Time: %.3fs, Rows: %d\n", 
-              fpr, result$time, result$result_rows))
-}
-
-cat("\nRecommendation: Use FPR 0.01 for balanced performance/accuracy\n")
-```
-
-## Conclusion
-
-The `bloomjoin` package provides significant performance benefits in the right scenarios:
-
-- **Best case**: 2-5x speedup with large, low-selectivity datasets
-- **Typical case**: 1.2-2x speedup with medium datasets
-- **Poor case**: May be slower than standard joins for small or high-selectivity data
-
-Use the `verbose = TRUE` parameter to monitor filter effectiveness and tune parameters accordingly. The package automatically warns when Bloom filters may not be beneficial for your specific use case.
+Default `fpr = 0.01` balances speed and memory well.

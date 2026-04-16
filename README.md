@@ -1,26 +1,30 @@
-## BloomJoin: Bloom Filter Based Joins
+## bloomjoin
 
 [![CI](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml)
 [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/bloomjoin)](https://cran.r-project.org/package=bloomjoin)
 ![](http://cranlogs.r-pkg.org/badges/grand-total/bloomjoin)
-[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/bloomjoin/)
 
+Faster, memory-efficient joins when joining a large table to a small lookup table.
 
-BloomJoin provides an alternative join implementation for R that uses an actual Bloom filter, implemented in C++ via Rcpp, to optimize the performance of joins between data frames. Traditional joins in R can be inefficient when dealing with large datasets, especially when one table is significantly larger than the other and the join key selectivity is low.
+### When to use
+
+bloomjoin helps when:
+- **Large table joined to small table** (10:1 ratio or more)
+- **Low overlap** between join keys (<25%)
+
+| n_x | n_y | overlap | speed | memory |
+|----:|----:|--------:|------:|-------:|
+| 1,000,000 | 10,000 | 1% | 2.0x | 2.2x |
+| 1,000,000 | 10,000 | 5% | 1.6x | 2.0x |
+| 500,000 | 5,000 | 2% | 1.7x | 1.9x |
+| 200,000 | 20,000 | 5% | 1.2x | 1.2x |
+
+Values > 1 mean bloomjoin is faster / uses less memory than dplyr.
 
 ### Installation
 
 ```r
-# Install from GitHub
 devtools::install_github("gojiplus/bloomjoin")
-```
-
-### Documentation
-
-The full pkgdown site, including function reference, articles, and release notes, is published automatically to GitHub Pages whenever changes are pushed to the main branch. You can browse it at <https://gojiplus.github.io/bloomjoin/>. To rebuild the site locally run:
-
-```r
-pkgdown::build_site()
 ```
 
 ### Usage
@@ -28,83 +32,37 @@ pkgdown::build_site()
 ```r
 library(bloomjoin)
 
-# Basic usage
-result <- bloom_join(df1, df2, by = "id", type = "inner")
-
-# With multiple join columns
-result <- bloom_join(df1, df2, by = c("id", "date"), type = "left")
-
-# With performance tuning parameters
-result <- bloom_join(df1, df2,
-                    by = "id",
-                    type = "inner",
-                    engine = "bloom",
-                    prefilter_side = "auto",
-                    fpr = 0.001,
-                    n_hint = list(y = 50000),
-                    verbose = TRUE)
+result <- bloom_join(large_df, small_lookup, by = "id")
 ```
 
-### Proof of Correctness
+Same syntax as dplyr. Supports `type = "inner"`, `"left"`, `"right"`, `"semi"`, `"anti"`.
 
-```r
-library(dplyr)
-library(tibble)
+### When NOT to use
 
-set.seed(123)
-left <- tibble(id = sample(1:5000, 4000), value_left = rnorm(4000))
-right <- tibble(id = sample(1:5000, 1500), value_right = rnorm(1500))
+- **Similar-sized tables**: dplyr is faster
+- **High overlap** (>50%): no benefit from pre-filtering
 
-bloom <- bloom_join(left, right, by = "id") %>% arrange(id)
-reference <- inner_join(left, right, by = "id") %>% arrange(id)
+| n_x | n_y | overlap | speed | memory |
+|----:|----:|--------:|------:|-------:|
+| 100,000 | 100,000 | 10% | 0.4x | 0.5x |
+| 100,000 | 100,000 | 50% | 0.4x | 0.4x |
 
-stopifnot(identical(bloom, reference))
-```
+Values < 1 mean dplyr is faster.
 
-### Benchmarking Time and Memory
+### How it works
 
-```r
-library(bench)
+1. Build a Bloom filter from the smaller table's keys
+2. Pre-filter the larger table to remove non-matching rows
+3. Run the actual join on the reduced dataset
 
-bench::mark(
-  bloom_join = bloom_join(left, right, by = "id"),
-  dplyr_join = inner_join(left, right, by = "id"),
-  iterations = 5,
-  check = FALSE
-)
-```
+Bloom filters have no false negatives, so no matches are lost.
 
-For a ready-to-run demonstration that generates data, verifies correctness, and
-prints benchmark summaries, execute:
+### Documentation
 
-```sh
-Rscript inst/scripts/usage-and-benchmark.R
-```
-
-### How It Works
-
-BloomJoin uses a Bloom filter pre-processing step to optimize joins:
-
-1. Sample the join keys to estimate distinct counts and decide which table to pre-filter.
-2. Build a Bloom filter (using a cache-friendly bitset stored in C++) from the chosen build-side join keys.
-3. Probe the filter with the opposing table to remove rows that cannot match before delegating to the appropriate `dplyr` verb.
-
-Because Bloom filters may produce false positives but never false negatives, this pre-filtering step safely reduces the number of rows that participate in the expensive join while preserving all possible matches. The underlying Bloom filter implementation is provided by a compiled Rcpp module for performance.
-
-### Performance Benchmarks
-
-See [here](https://htmlpreview.github.io/?https://github.com/gojiplus/bloomjoin/blob/main/doc/benchmarking-bloomjoin.html)
-
-### Future Work
-
-1. Explore alternative probabilistic data structures (e.g., binary-fuse filters) for further memory savings
-2. Parallel processing for Bloom filter construction and probing
-3. Streaming/Chunked probing for very large inputs
+- [Getting Started](https://gojiplus.github.io/bloomjoin/articles/bloomjoin-guide.html)
+- [Performance Analysis](https://gojiplus.github.io/bloomjoin/articles/benchmarking-bloomjoin.html)
+- [Function Reference](https://gojiplus.github.io/bloomjoin/reference/)
 
 ### License
 
 MIT
-
-### Contributing
-
-Contributions welcome! Please feel free to submit a Pull Request.
