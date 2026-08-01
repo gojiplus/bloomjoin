@@ -1,15 +1,17 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
-<url><loc>https://soodoku.github.io/bloomjoin/404.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/LICENSE-text.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/LICENSE.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/articles/benchmarking-bloomjoin.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/articles/index.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/authors.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/index.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/news/index.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/reference/bloom_join.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/reference/bloomjoin.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/reference/index.html</loc></url>
-<url><loc>https://soodoku.github.io/bloomjoin/reference/perform_standard_join.html</loc></url>
+<url><loc>/404.html</loc></url>
+<url><loc>/CLAUDE.html</loc></url>
+<url><loc>/LICENSE-text.html</loc></url>
+<url><loc>/articles/benchmarking-bloomjoin.html</loc></url>
+<url><loc>/articles/bloomjoin-guide.html</loc></url>
+<url><loc>/articles/index.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/news/index.html</loc></url>
+<url><loc>/reference/bloom_join.html</loc></url>
+<url><loc>/reference/bloom_params.html</loc></url>
+<url><loc>/reference/bloomjoin.html</loc></url>
+<url><loc>/reference/hash_keys32.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
 </urlset>
 
