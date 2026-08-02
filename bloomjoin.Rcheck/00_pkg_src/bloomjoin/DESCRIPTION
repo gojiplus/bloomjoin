@@ -10,25 +10,18 @@ Description: Provides high-performance join operations for large data frames usi
     and when many keys in the larger data frame don't have matches. Features include
     optimized C++ implementation, intelligent join strategy selection, comprehensive
     NA handling, and support for all standard join types.
-URL: https://gojiplus.github.io/bloomjoin/, https://github.com/gojiplus/bloomjoin
+URL: https://gojiplus.github.io/bloomjoin/,
+        https://github.com/gojiplus/bloomjoin
 BugReports: https://github.com/gojiplus/bloomjoin/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Imports: 
-    dplyr,
-    Rcpp (>= 1.0.0)
+Imports: dplyr, Rcpp (>= 1.0.0)
 LinkingTo: Rcpp
-Suggests:
-    testthat (>= 3.0.0),
-    tibble,
-    bit64,
-    rmarkdown,
-    knitr (>= 1.11),
-    microbenchmark,
-    bench,
-    ggplot2,
-    waldo
+Suggests: testthat (>= 3.0.0), tibble, bit64, rmarkdown, knitr (>=
+        1.11), microbenchmark, bench, ggplot2, waldo
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.0.0
+NeedsCompilation: yes
+Packaged: 2026-08-02 08:36:15 UTC; soodoku

@@ -1,0 +1,159 @@
+---
+title: "Performance Analysis of Bloom Filter Joins"
+author: "Gaurav Sood"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Performance Analysis of Bloom Filter Joins}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+This vignette compares `bloomjoin` against standard `dplyr` joins on two dimensions: **speed** and **memory**. Bloom joins excel when tables are asymmetric (large left, small right) with low overlap.
+
+```{r setup, message = FALSE}
+library(bloomjoin)
+library(dplyr)
+library(bench)
+library(knitr)
+```
+
+```{r helpers, include = FALSE}
+generate_data <- function(n_x, n_y, overlap, seed = 123) {
+  set.seed(seed)
+  y_keys <- seq_len(n_y)
+  n_match <- round(n_x * overlap)
+  x_matching <- if (n_match > 0 && n_match <= n_y) {
+    sample(y_keys, n_match)
+  } else if (n_match > n_y) {
+    sample(y_keys, n_match, replace = TRUE)
+  } else {
+    integer(0)
+  }
+  x_nonmatching <- seq(n_y + 1, n_y + n_x - length(x_matching))
+
+  list(
+    x = data.frame(id = sample(c(x_matching, x_nonmatching)), xv = rnorm(n_x)),
+    y = data.frame(id = y_keys, yv = rnorm(n_y))
+  )
+}
+
+run_bench <- function(n_x, n_y, overlap, reps = 3) {
+  dat <- generate_data(n_x, n_y, overlap)
+
+  # Warm up
+
+  invisible(bloom_join(dat$x, dat$y, by = "id"))
+  invisible(inner_join(dat$x, dat$y, by = "id"))
+
+  result <- bench::mark(
+    bloom = bloom_join(dat$x, dat$y, by = "id"),
+    dplyr = inner_join(dat$x, dat$y, by = "id"),
+    iterations = reps,
+    check = FALSE,
+    memory = TRUE
+  )
+
+  meta <- attr(bloom_join(dat$x, dat$y, by = "id"), "bloom_metadata")
+
+  data.frame(
+    n_x = format(n_x, big.mark = ",", scientific = FALSE),
+    n_y = format(n_y, big.mark = ",", scientific = FALSE),
+    overlap = paste0(overlap * 100, "%"),
+    speed_ratio = round(as.numeric(result$median[2]) / as.numeric(result$median[1]), 2),
+    mem_ratio = round(as.numeric(result$mem_alloc[2]) / as.numeric(result$mem_alloc[1]), 2),
+    reduction = paste0(round(meta$reduction_ratio * 100, 0), "%")
+  )
+}
+```
+
+## Correctness
+
+First, verify that `bloom_join()` produces identical results to `dplyr`:
+
+```{r correctness}
+dat <- generate_data(5000, 500, 0.1)
+bloom_result <- bloom_join(dat$x, dat$y, by = "id") |> arrange(id)
+dplyr_result <- inner_join(dat$x, dat$y, by = "id") |> arrange(id)
+
+# Strip bloom metadata for comparison
+bloom_cmp <- as.data.frame(bloom_result)
+attr(bloom_cmp, "bloom_metadata") <- NULL
+
+all.equal(bloom_cmp, as.data.frame(dplyr_result), check.attributes = FALSE)
+```
+
+## Speed and Memory Benchmarks
+
+We test across scenarios varying table asymmetry and overlap. `speed_ratio` and `mem_ratio` > 1 means bloom wins.
+
+```{r benchmarks, message = FALSE, warning = FALSE}
+scenarios <- list(
+  c(1e6, 1e4, 0.01),
+  c(1e6, 1e4, 0.05),
+  c(5e5, 5e3, 0.02),
+  c(5e5, 5e3, 0.10),
+  c(2e5, 2e4, 0.05),
+  c(2e5, 2e4, 0.25),
+  c(1e5, 1e5, 0.10),
+  c(1e5, 1e5, 0.50)
+)
+
+results <- do.call(rbind, lapply(scenarios, function(s) {
+  run_bench(s[1], s[2], s[3], reps = 3)
+}))
+
+kable(results,
+      col.names = c("n_x", "n_y", "overlap", "speed", "memory", "reduction"),
+      align = "rrrrrr")
+```
+
+## Interpretation
+
+- **speed, memory > 1**: bloom wins (dplyr_time / bloom_time)
+- **reduction**: % of rows filtered out before join — explains memory savings
+
+High reduction means fewer rows held in memory during the join. When reduction is low, Bloom filter overhead dominates and dplyr wins.
+
+## When to Use Bloom Joins
+
+| Condition | Bloom benefit |
+|-----------|---------------|
+| Large x, small y (10:1+) | Strong |
+| Low overlap (<25%) | Strong |
+| Equal-sized tables | None (use dplyr) |
+| High overlap (>50%) | None (use dplyr) |
+
+## Tuning
+
+The `fpr` parameter controls the false positive rate. Lower values reduce false positives but increase filter size:
+
+```{r tuning, message = FALSE}
+dat <- generate_data(50000, 5000, 0.05)
+
+fpr_results <- do.call(rbind, lapply(c(0.001, 0.01, 0.1), function(fpr) {
+  result <- bench::mark(
+    bloom_join(dat$x, dat$y, by = "id", fpr = fpr),
+    iterations = 3,
+    check = FALSE
+  )
+  data.frame(
+    fpr = fpr,
+    median_ms = round(as.numeric(result$median) * 1000, 1),
+    mem_mb = round(as.numeric(result$mem_alloc) / 1024^2, 1)
+  )
+}))
+
+kable(fpr_results, col.names = c("FPR", "Time (ms)", "Memory (MB)"))
+```
+
+Default `fpr = 0.01` balances speed and memory well.

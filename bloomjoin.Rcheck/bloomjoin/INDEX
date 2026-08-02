@@ -1,0 +1,8 @@
+bloom_join              Join two data frames using a Bloom filter
+                        pre-filter
+bloom_params            Report the Bloom filter chosen for a target
+                        false positive rate
+bloomjoin               BloomJoin: Efficient data.frame joins using
+                        probabilistic prefilters
+hash_keys32             Hash composite join keys to 32-bit integers
+                        (stable & type-aware)
