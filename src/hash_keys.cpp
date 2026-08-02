@@ -106,6 +106,11 @@ IntegerVector hash_keys32_cols(List cols,
   for (R_xlen_t col_idx = 0; col_idx < cols.size(); ++col_idx) {
     SEXP col = cols[col_idx];
 
+    // A Date counts days and a POSIXct counts seconds, but dplyr promotes Date
+    // to datetime and matches equal instants. Put both on the same scale so the
+    // two sides of such a join hash identically.
+    const double time_scale = Rf_inherits(col, "Date") ? 86400.0 : 1.0;
+
     // Factor handling
     if (Rf_isFactor(col)) {
       SEXP lv = Rf_getAttrib(col, R_LevelsSymbol);
@@ -155,7 +160,8 @@ IntegerVector hash_keys32_cols(List cols,
           if (v == NA_INTEGER) {
             hv = mix_in(TAG_NUM, splitmix64(0xD1B54A32D192ED03ULL));
           } else {
-            hv = mix_in(TAG_NUM, splitmix64(double_bits_canonical(static_cast<double>(v)).first));
+            hv = mix_in(TAG_NUM, splitmix64(
+                double_bits_canonical(static_cast<double>(v) * time_scale).first));
           }
           hashes[i + j] = mix_in(hashes[i + j], hv);
         }
@@ -167,21 +173,26 @@ IntegerVector hash_keys32_cols(List cols,
         if (v == NA_INTEGER) {
           hv = mix_in(TAG_NUM, splitmix64(0xD1B54A32D192ED03ULL));
         } else {
-          hv = mix_in(TAG_NUM, splitmix64(double_bits_canonical(static_cast<double>(v)).first));
+          hv = mix_in(TAG_NUM, splitmix64(
+              double_bits_canonical(static_cast<double>(v) * time_scale).first));
         }
         hashes[i] = mix_in(hashes[i], hv);
       }
       break;
     }
     case LGLSXP: {
+      // dplyr promotes logical to integer to double, so TRUE must hash exactly
+      // as 1L and 1.0 do, not under a tag of its own.
       const int* data = LOGICAL(col);
       for (R_xlen_t i = 0; i < n; ++i) {
         int v = data[i];
-        uint64_t code;
-        if (v == NA_LOGICAL) code = 2u;
-        else if (v == 0) code = 0u;
-        else code = 1u;
-        uint64_t hv = mix_in(TAG_LGL, splitmix64(code));
+        uint64_t hv;
+        if (v == NA_LOGICAL) {
+          hv = mix_in(TAG_NUM, splitmix64(0xD1B54A32D192ED03ULL));
+        } else {
+          hv = mix_in(TAG_NUM,
+                      splitmix64(double_bits_canonical(v == 0 ? 0.0 : 1.0).first));
+        }
         hashes[i] = mix_in(hashes[i], hv);
       }
       break;
@@ -199,14 +210,14 @@ IntegerVector hash_keys32_cols(List cols,
           __builtin_prefetch(&data[i + 16], 0, 0);
         }
         for (R_xlen_t j = 0; j < 4; ++j) {
-          auto bits_na = double_bits_canonical(data[i + j]);
+          auto bits_na = double_bits_canonical(data[i + j] * time_scale);
           uint64_t hv = mix_in(tag, splitmix64(bits_na.first));
           hashes[i + j] = mix_in(hashes[i + j], hv);
         }
       }
       // Handle remainder
       for (; i < n; ++i) {
-        auto bits_na = double_bits_canonical(data[i]);
+        auto bits_na = double_bits_canonical(data[i] * time_scale);
         uint64_t hv = mix_in(tag, splitmix64(bits_na.first));
         hashes[i] = mix_in(hashes[i], hv);
       }

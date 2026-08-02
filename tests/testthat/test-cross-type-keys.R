@@ -60,3 +60,29 @@ test_that("distinct values still hash distinctly within a type", {
   y <- data.frame(id = seq_len(n) + n, vy = seq_len(n))
   expect_equal(nrow(suppressMessages(bloom_join(x, y, by = "id"))), 0)
 })
+
+test_that("logical and datetime keys match the numerics dplyr matches them to", {
+  # Tested as the second half of a composite key, so the unique id keeps the
+  # join one-to-one; a constant logical key on its own is many-to-many.
+  #
+  # dplyr promotes logical to integer to double, so TRUE must hash as 1 does.
+  # A Date counts days while a POSIXct counts seconds, and dplyr promotes Date
+  # to datetime, so equal instants must hash alike.
+  n <- 3000
+  dates <- as.Date(seq_len(n), origin = "1970-01-01")
+  cases <- list(
+    "logical vs integer" = list(rep(TRUE, n), rep(1L, n)),
+    "logical vs double"  = list(rep(TRUE, n), rep(1, n)),
+    "FALSE vs zero"      = list(rep(FALSE, n), rep(0L, n)),
+    "Date vs POSIXct"    = list(dates, as.POSIXct(dates, tz = "UTC"))
+  )
+
+  for (nm in names(cases)) {
+    x <- data.frame(id = seq_len(n), k = cases[[nm]][[1]], vx = seq_len(n))
+    y <- data.frame(id = seq_len(n), k = cases[[nm]][[2]], vy = seq_len(n))
+    got <- suppressMessages(bloom_join(x, y, by = c("id", "k"), type = "inner"))
+    ref <- suppressMessages(dplyr::inner_join(x, y, by = c("id", "k")))
+    expect_equal(nrow(got), nrow(ref), info = nm)
+    expect_equal(nrow(got), n, info = nm)
+  }
+})
