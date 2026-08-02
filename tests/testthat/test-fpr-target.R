@@ -38,3 +38,24 @@ test_that("filtering never drops a key that is present", {
     expect_true(all(filter_keys(build, build, n, p)))
   }
 })
+
+test_that("the target is met at loose and tight rates, not just typical ones", {
+  # The closed form assumes a real-valued k. Rounding to an integer and
+  # flooring at 1 used to overshoot: p = 0.8 gave an optimum of k = 0.36, which
+  # floored to 1 and achieved 0.85. The sizing now buys bits until the request
+  # is met.
+  sizing <- getFromNamespace("rcpp_bloom_sizing", "bloomjoin")
+  for (case in list(c(1e6, 0.8), c(1e6, 0.5), c(1e6, 0.2), c(10, 1e-20),
+                    c(1e5, 1e-4), c(1e6, 1e-6))) {
+    n <- case[1]
+    p <- case[2]
+    z <- sizing(n, p)
+    achieved <- (1 - exp(-z$k * n / z$m_bits))^z$k
+    expect_lte(achieved, p, label = paste0("n=", n, " p=", p))
+  }
+})
+
+test_that("an unsatisfiable target warns rather than missing quietly", {
+  # 1e12 keys at 1e-9 needs roughly 5 TB; the array is capped well below that.
+  expect_warning(bloom_params(1e12, 1e-9), "Cannot reach the requested")
+})

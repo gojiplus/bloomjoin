@@ -58,6 +58,20 @@ bloom_params <- function(n, p = 1e-2) {
     fpr_est      = as.numeric((1 - exp(-k * n / m_bits))^k)
   )
   class(out) <- c("bloom_params", "list")
+
+  # The array is capped, so an extreme combination of n and p can be
+  # unsatisfiable: n = 1e12 at p = 1e-9 would need about 5 TB. Say so rather
+  # than reporting a rate that quietly misses the request.
+  if (out$fpr_est > out$p_target) {
+    warning(
+      "Cannot reach the requested false positive rate of ", signif(p, 3),
+      " for n = ", format(n, scientific = FALSE),
+      ": the filter is capped at ", format(m_bits, scientific = FALSE),
+      " bits, which achieves ", signif(out$fpr_est, 3), ".",
+      call. = FALSE
+    )
+  }
+
   out
 }
 

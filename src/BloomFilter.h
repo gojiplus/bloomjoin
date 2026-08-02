@@ -86,25 +86,44 @@ inline void bloom_sizing(size_t expected_elements, double false_positive_rate,
   }
 
   const double ln2 = 0.6931471805599453;
-  const double m_raw =
-      (-std::log(false_positive_rate) / (ln2 * ln2)) * static_cast<double>(expected_elements);
+  const double n = static_cast<double>(expected_elements);
+  const double m_raw = (-std::log(false_positive_rate) / (ln2 * ln2)) * n;
 
-  // Round up to a power of two so the modulo stays a mask. Cap at 2^40 bits so
-  // an extreme rate cannot overflow the shift.
-  const size_t max_bits = static_cast<size_t>(1) << 40;
-  size_t power = 1;
-  while (static_cast<double>(power) < m_raw && power < max_bits) power <<= 1;
+  // Cap the array so an extreme rate cannot ask for more memory than exists,
+  // and so the shift below stays defined on a 32-bit size_t.
+  const int max_shift = (sizeof(size_t) * 8 > 40) ? 40 : (int)(sizeof(size_t) * 8 - 2);
+  const size_t max_bits = static_cast<size_t>(1) << max_shift;
+  const size_t max_k = 64;
 
-  // k from the rounded m, not from m_raw: rounding up adds as much as 2x the
-  // bits, and spending them on probes is what keeps the achieved rate at or
-  // under the requested one.
-  const double k_opt =
-      (static_cast<double>(power) / static_cast<double>(expected_elements)) * ln2;
-  size_t k = static_cast<size_t>(k_opt + 0.5);
-  if (k < 1) k = 1;
-  if (k > 30) k = 30;
+  // Round up to a power of two so the modulo stays a mask.
+  size_t m = 1;
+  while (static_cast<double>(m) < m_raw && m < max_bits) m <<= 1;
 
-  *m_out = power;
+  // k comes from the rounded m, which is up to 2x m_raw.
+  auto k_for = [&](size_t bits) {
+    double k_opt = (static_cast<double>(bits) / n) * ln2;
+    size_t kk = static_cast<size_t>(k_opt + 0.5);
+    if (kk < 1) kk = 1;
+    if (kk > max_k) kk = max_k;
+    return kk;
+  };
+  auto achieved = [&](size_t bits, size_t kk) {
+    return std::pow(1.0 - std::exp(-static_cast<double>(kk) * n / static_cast<double>(bits)),
+                    static_cast<double>(kk));
+  };
+
+  size_t k = k_for(m);
+
+  // The closed form assumes a real-valued k. Rounding it to an integer, and
+  // flooring it at 1, can leave the achieved rate ABOVE the request -- at
+  // p = 0.8 the optimum is k = 0.36, which floors to 1 and overshoots to 0.85.
+  // Buy the difference with bits until the request is met or memory runs out.
+  while (achieved(m, k) > false_positive_rate && m < max_bits) {
+    m <<= 1;
+    k = k_for(m);
+  }
+
+  *m_out = m;
   *k_out = k;
 }
 
