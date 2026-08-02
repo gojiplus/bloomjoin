@@ -123,29 +123,6 @@ bloom_join <- function(
   result
 }
 
-#' Compute Bloom filter parameters
-#'
-#' @param n Estimated number of elements that will be inserted into the filter.
-#' @param p Desired false positive rate. Defaults to 0.01.
-#'
-#' @return A list with the number of bits (`m`) and hash functions (`k`).
-#' @export
-#'
-#' @examples
-#' bloom_params(1e6, p = 0.001)
-bloom_params <- function(n, p = 0.01) {
-  if (length(n) != 1 || !is.numeric(n) || is.na(n) || n <= 0) {
-    stop("'n' must be a positive numeric scalar")
-  }
-  if (length(p) != 1 || !is.numeric(p) || is.na(p) || p <= 0 || p >= 1) {
-    stop("'p' must be a numeric scalar between 0 and 1")
-  }
-
-  m <- ceiling(-n * log(p) / (log(2)^2))
-  k <- max(1L, as.integer(round((m / n) * log(2))))
-  list(m = as.integer(m), k = k)
-}
-
 validate_join_inputs <- function(x, y, type, fpr) {
   if (!is.data.frame(x) || !is.data.frame(y)) {
     stop("Both 'x' and 'y' must be data frames")
@@ -176,31 +153,23 @@ resolve_join_columns <- function(x, y, by) {
     y_cols <- common
     by_spec <- common
   } else if (is.character(by)) {
-    if (!is.null(names(by)) && any(names(by) != "")) {
-      x_cols <- names(by)
-      y_cols <- unname(by)
-      missing_x <- x_cols[!x_cols %in% names(x)]
-      missing_y <- y_cols[!y_cols %in% names(y)]
-      if (length(missing_x)) {
-        stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
-      }
-      if (length(missing_y)) {
-        stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
-      }
-      by_spec <- by
-    } else {
-      x_cols <- by
-      y_cols <- by
-      missing_x <- x_cols[!x_cols %in% names(x)]
-      missing_y <- y_cols[!y_cols %in% names(y)]
-      if (length(missing_x)) {
-        stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
-      }
-      if (length(missing_y)) {
-        stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
-      }
-      by_spec <- by
+    # A named element maps names(by) in x to by in y; an unnamed one names the
+    # same column on both sides. dplyr lets the two be mixed in one vector, so
+    # resolve per element -- taking names(by) wholesale turned every unnamed
+    # entry into "" and then looked "" up as a column name.
+    nms <- names(by)
+    if (is.null(nms)) nms <- rep("", length(by))
+    x_cols <- ifelse(nms == "", unname(by), nms)
+    y_cols <- unname(by)
+    missing_x <- x_cols[!x_cols %in% names(x)]
+    missing_y <- y_cols[!y_cols %in% names(y)]
+    if (length(missing_x)) {
+      stop("Join columns not found in x: ", paste(missing_x, collapse = ", "))
     }
+    if (length(missing_y)) {
+      stop("Join columns not found in y: ", paste(missing_y, collapse = ", "))
+    }
+    by_spec <- by
   } else {
     stop("'by' must be NULL or a character vector")
   }
