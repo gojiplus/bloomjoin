@@ -1,0 +1,105 @@
+Hmm ... looks like a package
+Converting parsed Rd's to LaTeX 
+Creating pdf output from LaTeX ...
+
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+(./Rd2.tex
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2025/01/22 v1.4n Standard LaTeX document class
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/bk10.clo)) (/Library/Frameworks/R.framework/Resources/share/texmf/tex/latex/Rd.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/ifthen.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/iftex/iftex.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/longtable.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/bm.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/alltt.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/verbatim.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/url/url.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/textcomp.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amstext.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsgen.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsbsy.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsopn.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amsfonts.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amssymb.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/mathrsfs.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/fontenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/times.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/zi4.sty `inconsolata-zi4' v1.12, 2019/05/17 Text macros for Inconsolata (msharpe) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/xkeyval/xkeyval.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkeyval.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkvutils.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/keyval.tex))))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/color.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-cfg/color.cfg) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-def/pdftex.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/mathcolor.ltx)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hyperref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdfescape/pdfescape.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/infwarerr/infwarerr.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hycolor/hycolor.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/nameref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/refcount/refcount.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvoptions/kvoptions.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/etoolbox/etoolbox.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/stringenc/stringenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/pd1enc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/intcalc/intcalc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/puenc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bitset/bitset.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hpdftex.def (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty)))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/makeidx.sty)
+Writing index file Rd2.idx
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/t1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)
+No file Rd2.aux.
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/t1zi4.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/ts1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsa.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsb.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/ursfs.fd)
+No file Rd2.toc.
+[1{/Users/soodoku/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-0.enc}] [2] [3] [4]
+No file Rd2.ind.
+[5] (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.aux)
+
+Package rerunfilecheck Warning: File `Rd2.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+ )</Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/public/inconsolata/Inconsolata-zi4r.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on Rd2.pdf (5 pages, 88747 bytes).
+Transcript written on Rd2.log.
+This is makeindex, version 2.16 [TeX Live 2022] (kpathsea + Thai support).
+Scanning input file Rd2.idx....done (6 entries accepted, 0 rejected).
+Sorting entries....done (15 comparisons).
+Generating output file Rd2.ind....done (14 lines written, 0 warnings).
+Output written in Rd2.ind.
+Transcript written in Rd2.ilg.
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+(./Rd2.tex
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2025/01/22 v1.4n Standard LaTeX document class
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/bk10.clo)) (/Library/Frameworks/R.framework/Resources/share/texmf/tex/latex/Rd.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/ifthen.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/iftex/iftex.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/longtable.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/bm.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/alltt.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/verbatim.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/url/url.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/textcomp.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amstext.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsgen.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsbsy.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsopn.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amsfonts.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amssymb.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/mathrsfs.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/fontenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/times.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/zi4.sty `inconsolata-zi4' v1.12, 2019/05/17 Text macros for Inconsolata (msharpe) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/xkeyval/xkeyval.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkeyval.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkvutils.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/keyval.tex))))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/color.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-cfg/color.cfg) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-def/pdftex.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/mathcolor.ltx)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hyperref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdfescape/pdfescape.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/infwarerr/infwarerr.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hycolor/hycolor.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/nameref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/refcount/refcount.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvoptions/kvoptions.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/etoolbox/etoolbox.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/stringenc/stringenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/pd1enc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/intcalc/intcalc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/puenc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bitset/bitset.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hpdftex.def (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty)))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/makeidx.sty)
+Writing index file Rd2.idx
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/t1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.aux) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.out) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.out) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/t1zi4.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/ts1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsa.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsb.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/ursfs.fd) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.toc) [1{/Users/soodoku/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-0.enc}] [2] [3] [4] (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.ind [5]
+
+LaTeX Font Warning: Font shape `T1/zi4/m/it' undefined
+(Font)              using `T1/zi4/m/n' instead on input line 7.
+
+[6]) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.aux)
+
+LaTeX Font Warning: Some font shapes were not available, defaults substituted.
+
+
+Package rerunfilecheck Warning: File `Rd2.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+ )</Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/public/inconsolata/Inconsolata-zi4r.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on Rd2.pdf (6 pages, 90149 bytes).
+Transcript written on Rd2.log.
+This is makeindex, version 2.16 [TeX Live 2022] (kpathsea + Thai support).
+Scanning input file Rd2.idx....done (6 entries accepted, 0 rejected).
+Sorting entries....done (15 comparisons).
+Generating output file Rd2.ind....done (14 lines written, 0 warnings).
+Output written in Rd2.ind.
+Transcript written in Rd2.ilg.
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+(./Rd2.tex
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2025/01/22 v1.4n Standard LaTeX document class
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/bk10.clo)) (/Library/Frameworks/R.framework/Resources/share/texmf/tex/latex/Rd.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/ifthen.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/iftex/iftex.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/longtable.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/bm.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/alltt.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/tools/verbatim.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/url/url.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/textcomp.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amstext.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsgen.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsbsy.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsmath/amsopn.sty)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amsfonts.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/amssymb.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/mathrsfs.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/fontenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/times.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/zi4.sty `inconsolata-zi4' v1.12, 2019/05/17 Text macros for Inconsolata (msharpe) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/xkeyval/xkeyval.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkeyval.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/xkvutils.tex (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/xkeyval/keyval.tex))))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/color.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-cfg/color.cfg) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics-def/pdftex.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/graphics/mathcolor.ltx)) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hyperref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdfescape/pdfescape.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/infwarerr/infwarerr.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hycolor/hycolor.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/nameref.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/refcount/refcount.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/kvoptions/kvoptions.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/etoolbox/etoolbox.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/stringenc/stringenc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/pd1enc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/intcalc/intcalc.sty) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/puenc.def) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bitset/bitset.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/hyperref/hpdftex.def (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty)))) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/base/makeidx.sty)
+Writing index file Rd2.idx
+(/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/t1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.aux) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.out) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.out) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/inconsolata/t1zi4.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/psnfss/ts1ptm.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsa.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/amsfonts/umsb.fd) (/Users/soodoku/Library/TinyTeX/texmf-dist/tex/latex/jknapltx/ursfs.fd) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.toc) [1{/Users/soodoku/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}{/Users/soodoku/Library/TinyTeX/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-0.enc}] [2] [3] [4] (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.ind [5]
+
+LaTeX Font Warning: Font shape `T1/zi4/m/it' undefined
+(Font)              using `T1/zi4/m/n' instead on input line 7.
+
+[6]) (/private/var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T/RtmpAeqXy6/Rd2pdf11f705853ca0/Rd2.aux)
+
+LaTeX Font Warning: Some font shapes were not available, defaults substituted.
+
+ )</Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/public/inconsolata/Inconsolata-zi4r.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></Users/soodoku/Library/TinyTeX/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on Rd2.pdf (6 pages, 90231 bytes).
+Transcript written on Rd2.log.
+Saving output to ‘bloomjoin-manual.pdf’ ...
+Done
+You may want to clean up by 'rm -Rf /var/folders/ks/1g8bn5m566n_w4l5hwwjv4180000gn/T//RtmpAeqXy6/Rd2pdf11f705853ca0'

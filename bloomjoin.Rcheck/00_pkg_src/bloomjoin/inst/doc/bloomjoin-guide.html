@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Gaurav Sood" />
+
+<meta name="date" content="2026-08-02" />
+
+<title>Getting Started with BloomJoin</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Getting Started with BloomJoin</h1>
+<h4 class="author">Gaurav Sood</h4>
+<h4 class="date">2026-08-02</h4>
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>The <code>bloomjoin</code> package provides high-performance join
+operations for large data frames using Bloom filters. A Bloom filter is
+a space-efficient probabilistic data structure that can quickly test
+whether an element is in a set, making it perfect for pre-filtering
+joins on large datasets.</p>
+<p>This guide demonstrates when and how to use <code>bloom_join()</code>
+effectively.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(bloomjoin)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(tibble)</span></code></pre></div>
+</div>
+<div id="when-to-use-bloom-joins" class="section level2">
+<h2>When to Use Bloom Joins</h2>
+<p>Bloom joins are most effective when:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Joining large datasets</strong> (&gt;10k rows) with smaller
+lookup tables</li>
+<li><strong>Low selectivity</strong> scenarios where many keys in the
+left table don’t match</li>
+<li><strong>Inner, semi, or anti joins</strong> (maximum benefit)</li>
+<li><strong>Memory-constrained</strong> environments</li>
+</ol>
+</div>
+<div id="basic-usage" class="section level2">
+<h2>Basic Usage</h2>
+<div id="simple-inner-join" class="section level3">
+<h3>Simple Inner Join</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Create sample data</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>customers <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">customer_id =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">name =</span> <span class="fu">paste</span>(<span class="st">&quot;Customer&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>),</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">segment =</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Premium&quot;</span>, <span class="st">&quot;Standard&quot;</span>, <span class="st">&quot;Basic&quot;</span>), <span class="dv">10000</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># Small lookup table</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>active_customers <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">customer_id =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>, <span class="dv">500</span>),  <span class="co"># Only 5% of customers are active</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="at">last_login =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2024-01-01&quot;</span>) <span class="sc">+</span> <span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">365</span>, <span class="dv">500</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>)</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co"># Compare bloom join with standard join</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="fu">system.time</span>({</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(customers, active_customers, </span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>                           <span class="at">by =</span> <span class="st">&quot;customer_id&quot;</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>})</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; Prefilter retained 503 of 10000 rows from &#39;x&#39;</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt;   0.002   0.000   0.002</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="fu">system.time</span>({</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>  std_result <span class="ot">&lt;-</span> <span class="fu">inner_join</span>(customers, active_customers, <span class="at">by =</span> <span class="st">&quot;customer_id&quot;</span>)</span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>})</span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="co">#&gt;   0.001   0.000   0.001</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a><span class="co"># Results should be identical</span></span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="fu">identical</span>(<span class="fu">nrow</span>(bloom_result), <span class="fu">nrow</span>(std_result))</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+</div>
+<div id="all-join-types" class="section level3">
+<h3>All Join Types</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Sample datasets with partial overlap</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">8</span>, <span class="at">x_val =</span> letters[<span class="dv">1</span><span class="sc">:</span><span class="dv">8</span>])</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">id =</span> <span class="fu">c</span>(<span class="dv">3</span><span class="sc">:</span><span class="dv">10</span>), <span class="at">y_val =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">8</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Dataset overlap:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; Dataset overlap:</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;x has IDs:&quot;</span>, <span class="fu">paste</span>(x<span class="sc">$</span>id, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; x has IDs: 1, 2, 3, 4, 5, 6, 7, 8</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;y has IDs:&quot;</span>, <span class="fu">paste</span>(y<span class="sc">$</span>id, <span class="at">collapse =</span> <span class="st">&quot;, &quot;</span>), <span class="st">&quot;</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; y has IDs: 3, 4, 5, 6, 7, 8, 9, 10</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co"># Inner join - only matching records</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>inner_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">type =</span> <span class="st">&quot;inner&quot;</span>)</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Inner join:&quot;</span>, <span class="fu">nrow</span>(inner_result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; Inner join: 6 rows</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co"># Left join - all records from x, matching from y  </span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>left_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">type =</span> <span class="st">&quot;left&quot;</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Left join:&quot;</span>, <span class="fu">nrow</span>(left_result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; Left join: 8 rows</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co"># Semi join - records in x that have matches in y</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>semi_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">type =</span> <span class="st">&quot;semi&quot;</span>) </span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Semi join:&quot;</span>, <span class="fu">nrow</span>(semi_result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; Semi join: 6 rows</span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co"># Anti join - records in x that DON&#39;T have matches in y</span></span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>anti_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">type =</span> <span class="st">&quot;anti&quot;</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Anti join:&quot;</span>, <span class="fu">nrow</span>(anti_result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; Anti join: 2 rows</span></span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="fu">print</span>(anti_result)</span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 2</span></span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt;      id x_val</span></span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="co">#&gt;   &lt;int&gt; &lt;chr&gt;</span></span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a><span class="co">#&gt; 1     1 a    </span></span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a><span class="co">#&gt; 2     2 b</span></span></code></pre></div>
+</div>
+</div>
+<div id="advanced-features" class="section level2">
+<h2>Advanced Features</h2>
+<div id="multi-column-joins" class="section level3">
+<h3>Multi-column Joins</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Create data with composite keys</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>orders <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">customer_id =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">100</span>, <span class="at">each =</span> <span class="dv">3</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">product_id =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">101</span>, <span class="dv">102</span>, <span class="dv">103</span>), <span class="dv">100</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">quantity =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">300</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>)</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>inventory <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">customer_id =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">50</span>, <span class="at">each =</span> <span class="dv">2</span>), <span class="co"># Only half the customers have inventory</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">product_id =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">101</span>, <span class="dv">102</span>), <span class="dv">50</span>),</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">in_stock =</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="cn">TRUE</span>, <span class="cn">FALSE</span>), <span class="dv">100</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>)</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co"># Multi-column bloom join</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(orders, inventory, </span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>                    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;customer_id&quot;</span>, <span class="st">&quot;product_id&quot;</span>), </span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>                    <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; Skipping Bloom pre-filter: prefilter skip heuristic triggered</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Multi-column join result:&quot;</span>, <span class="fu">nrow</span>(result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; Multi-column join result: 100 rows</span></span></code></pre></div>
+</div>
+<div id="named-join-columns" class="section level3">
+<h3>Named Join Columns</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Different column names in each table</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>sales <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">cust_id =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">100</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">sale_amount =</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="dv">100</span>, <span class="dv">20</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>profiles <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">customer_id =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">100</span>, <span class="dv">60</span>),  <span class="co"># Only 60% coverage</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">tier =</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Gold&quot;</span>, <span class="st">&quot;Silver&quot;</span>, <span class="st">&quot;Bronze&quot;</span>), <span class="dv">60</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>)</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co"># Join with different column names</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(sales, profiles, </span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>                    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;cust_id&quot;</span> <span class="ot">=</span> <span class="st">&quot;customer_id&quot;</span>))</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Named column join:&quot;</span>, <span class="fu">nrow</span>(result), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; Named column join: 60 rows</span></span></code></pre></div>
+</div>
+<div id="performance-tuning" class="section level3">
+<h3>Performance Tuning</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Large dataset example</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>large_x <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">id =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">100000</span>, <span class="dv">50000</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">transaction_id =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">50000</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">amount =</span> <span class="fu">rnorm</span>(<span class="dv">50000</span>, <span class="dv">100</span>, <span class="dv">50</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>small_y <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">id =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">100000</span>, <span class="dv">1000</span>, <span class="at">replace =</span> <span class="cn">FALSE</span>),</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">account_type =</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Checking&quot;</span>, <span class="st">&quot;Savings&quot;</span>, <span class="st">&quot;Credit&quot;</span>), <span class="dv">1000</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>)</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co"># Default parameters</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>result1 <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(large_x, small_y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; Prefilter retained 525 of 50000 rows from &#39;x&#39;</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co"># Tuned parameters for better performance</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>result2 <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(large_x, small_y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, </span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>                     <span class="at">n_hint =</span> <span class="fu">list</span>(<span class="at">y =</span> <span class="dv">2000</span>),     <span class="co"># Hint for expected cardinality</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>                     <span class="at">fpr =</span> <span class="fl">0.001</span>, <span class="co"># Lower FPR</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>                     <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; Prefilter retained 525 of 50000 rows from &#39;x&#39;</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co"># Compare filter effectiveness</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Default filter effectiveness:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; Default filter effectiveness:</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Tuned filter effectiveness:</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; Tuned filter effectiveness:</span></span></code></pre></div>
+</div>
+</div>
+<div id="error-handling-and-diagnostics" class="section level2">
+<h2>Error Handling and Diagnostics</h2>
+<p>The package provides helpful error messages and suggestions:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Type in wrong join type</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">try</span>(<span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>, <span class="at">type =</span> <span class="st">&quot;inne&quot;</span>))  <span class="co"># Typo in &quot;inner&quot;</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; Error in bloom_join(x, y, by = &quot;id&quot;, type = &quot;inne&quot;) : </span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt;   Invalid join type &#39;inne&#39;</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co"># Missing join columns</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="fu">try</span>(<span class="fu">bloom_join</span>(x, y, <span class="at">by =</span> <span class="st">&quot;nonexistent_col&quot;</span>))</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; Error in resolve_join_columns(x, y, by) : </span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt;   Join columns not found in x: nonexistent_col</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co"># Wrong data types</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="fu">try</span>(<span class="fu">bloom_join</span>(<span class="fu">list</span>(<span class="at">a =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>), y, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>))</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; Error in validate_join_inputs(x, y, type, fpr) : </span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt;   Both &#39;x&#39; and &#39;y&#39; must be data frames</span></span></code></pre></div>
+</div>
+<div id="performance-guidelines" class="section level2">
+<h2>Performance Guidelines</h2>
+<div id="when-bloom-joins-excel" class="section level3">
+<h3>When Bloom Joins Excel</h3>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Scenario 1: Large left table, small right table, low selectivity</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>create_test_scenario <span class="ot">&lt;-</span> <span class="cf">function</span>(n_left, n_right, selectivity) {</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  left_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>    <span class="at">id =</span> <span class="dv">1</span><span class="sc">:</span>n_left,</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>    <span class="at">data =</span> <span class="fu">rnorm</span>(n_left)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  )</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  </span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="co"># Right table with controlled selectivity</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  n_matches <span class="ot">&lt;-</span> <span class="fu">round</span>(n_left <span class="sc">*</span> selectivity)</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  right_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>    <span class="at">id =</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>n_left, n_right, <span class="at">replace =</span> <span class="cn">FALSE</span>),</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>    <span class="at">lookup =</span> <span class="fu">rnorm</span>(n_right)</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>  )</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>  </span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">left =</span> left_df, <span class="at">right =</span> right_df)</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>}</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co"># Test scenarios</span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Optimal: Large left, small right, low selectivity&quot;</span>, </span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>       <span class="at">n_left =</span> <span class="dv">50000</span>, <span class="at">n_right =</span> <span class="dv">1000</span>, <span class="at">selectivity =</span> <span class="fl">0.02</span>),</span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Good: Medium datasets, moderate selectivity&quot;</span>,</span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>       <span class="at">n_left =</span> <span class="dv">10000</span>, <span class="at">n_right =</span> <span class="dv">2000</span>, <span class="at">selectivity =</span> <span class="fl">0.10</span>),</span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Poor: Small datasets, high selectivity&quot;</span>, </span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>       <span class="at">n_left =</span> <span class="dv">1000</span>, <span class="at">n_right =</span> <span class="dv">800</span>, <span class="at">selectivity =</span> <span class="fl">0.80</span>)</span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a>)</span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a><span class="cf">for</span> (scenario <span class="cf">in</span> scenarios) {</span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>, scenario<span class="sc">$</span>name, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">paste</span>(<span class="fu">rep</span>(<span class="st">&quot;=&quot;</span>, <span class="fu">nchar</span>(scenario<span class="sc">$</span>name)), <span class="at">collapse =</span> <span class="st">&quot;&quot;</span>), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-31"><a href="#cb8-31" tabindex="-1"></a>  </span>
+<span id="cb8-32"><a href="#cb8-32" tabindex="-1"></a>  test_data <span class="ot">&lt;-</span> <span class="fu">create_test_scenario</span>(scenario<span class="sc">$</span>n_left, scenario<span class="sc">$</span>n_right, scenario<span class="sc">$</span>selectivity)</span>
+<span id="cb8-33"><a href="#cb8-33" tabindex="-1"></a>  </span>
+<span id="cb8-34"><a href="#cb8-34" tabindex="-1"></a>  <span class="co"># Time bloom join</span></span>
+<span id="cb8-35"><a href="#cb8-35" tabindex="-1"></a>  bloom_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb8-36"><a href="#cb8-36" tabindex="-1"></a>    bloom_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(test_data<span class="sc">$</span>left, test_data<span class="sc">$</span>right, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb8-37"><a href="#cb8-37" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb8-38"><a href="#cb8-38" tabindex="-1"></a>  </span>
+<span id="cb8-39"><a href="#cb8-39" tabindex="-1"></a>  <span class="co"># Time standard join  </span></span>
+<span id="cb8-40"><a href="#cb8-40" tabindex="-1"></a>  std_time <span class="ot">&lt;-</span> <span class="fu">system.time</span>({</span>
+<span id="cb8-41"><a href="#cb8-41" tabindex="-1"></a>    std_result <span class="ot">&lt;-</span> <span class="fu">inner_join</span>(test_data<span class="sc">$</span>left, test_data<span class="sc">$</span>right, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb8-42"><a href="#cb8-42" tabindex="-1"></a>  })[<span class="st">&quot;elapsed&quot;</span>]</span>
+<span id="cb8-43"><a href="#cb8-43" tabindex="-1"></a>  </span>
+<span id="cb8-44"><a href="#cb8-44" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;Bloom join time:&quot;</span>, <span class="fu">round</span>(bloom_time <span class="sc">*</span> <span class="dv">1000</span>, <span class="dv">2</span>), <span class="st">&quot;ms</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-45"><a href="#cb8-45" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;Standard join time:&quot;</span>, <span class="fu">round</span>(std_time <span class="sc">*</span> <span class="dv">1000</span>, <span class="dv">2</span>), <span class="st">&quot;ms</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-46"><a href="#cb8-46" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;Speedup:&quot;</span>, <span class="fu">round</span>(std_time <span class="sc">/</span> bloom_time, <span class="dv">2</span>), <span class="st">&quot;x</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb8-47"><a href="#cb8-47" tabindex="-1"></a>}</span>
+<span id="cb8-48"><a href="#cb8-48" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-49"><a href="#cb8-49" tabindex="-1"></a><span class="co">#&gt;  Optimal: Large left, small right, low selectivity </span></span>
+<span id="cb8-50"><a href="#cb8-50" tabindex="-1"></a><span class="co">#&gt; ================================================= </span></span>
+<span id="cb8-51"><a href="#cb8-51" tabindex="-1"></a><span class="co">#&gt; Bloom join time: 2 ms</span></span>
+<span id="cb8-52"><a href="#cb8-52" tabindex="-1"></a><span class="co">#&gt; Standard join time: 1 ms</span></span>
+<span id="cb8-53"><a href="#cb8-53" tabindex="-1"></a><span class="co">#&gt; Speedup: 0.5 x</span></span>
+<span id="cb8-54"><a href="#cb8-54" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-55"><a href="#cb8-55" tabindex="-1"></a><span class="co">#&gt;  Good: Medium datasets, moderate selectivity </span></span>
+<span id="cb8-56"><a href="#cb8-56" tabindex="-1"></a><span class="co">#&gt; =========================================== </span></span>
+<span id="cb8-57"><a href="#cb8-57" tabindex="-1"></a><span class="co">#&gt; Bloom join time: 1 ms</span></span>
+<span id="cb8-58"><a href="#cb8-58" tabindex="-1"></a><span class="co">#&gt; Standard join time: 1 ms</span></span>
+<span id="cb8-59"><a href="#cb8-59" tabindex="-1"></a><span class="co">#&gt; Speedup: 1 x</span></span>
+<span id="cb8-60"><a href="#cb8-60" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-61"><a href="#cb8-61" tabindex="-1"></a><span class="co">#&gt;  Poor: Small datasets, high selectivity </span></span>
+<span id="cb8-62"><a href="#cb8-62" tabindex="-1"></a><span class="co">#&gt; ====================================== </span></span>
+<span id="cb8-63"><a href="#cb8-63" tabindex="-1"></a><span class="co">#&gt; Bloom join time: 2 ms</span></span>
+<span id="cb8-64"><a href="#cb8-64" tabindex="-1"></a><span class="co">#&gt; Standard join time: 1 ms</span></span>
+<span id="cb8-65"><a href="#cb8-65" tabindex="-1"></a><span class="co">#&gt; Speedup: 0.5 x</span></span></code></pre></div>
+</div>
+</div>
+<div id="best-practices" class="section level2">
+<h2>Best Practices</h2>
+<ol style="list-style-type: decimal">
+<li><strong>Use for appropriate scenarios</strong>: Large datasets with
+low selectivity</li>
+<li><strong>Tune parameters</strong>: Adjust <code>fpr</code> and
+optional <code>n_hint</code> values for your data</li>
+<li><strong>Monitor performance</strong>: Use
+<code>verbose = TRUE</code> to see filter effectiveness</li>
+<li><strong>Consider join type</strong>: Inner/semi/anti joins benefit
+most</li>
+<li><strong>Test with your data</strong>: Benchmark against standard
+joins for your use case</li>
+</ol>
+</div>
+<div id="memory-considerations" class="section level2">
+<h2>Memory Considerations</h2>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># For very large datasets, consider chunked processing</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>process_large_join <span class="ot">&lt;-</span> <span class="cf">function</span>(large_df, small_df, <span class="at">chunk_size =</span> <span class="dv">10000</span>) {</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  n_chunks <span class="ot">&lt;-</span> <span class="fu">ceiling</span>(<span class="fu">nrow</span>(large_df) <span class="sc">/</span> chunk_size)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  </span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_chunks) {</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>    start_row <span class="ot">&lt;-</span> (i <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> chunk_size <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>    end_row <span class="ot">&lt;-</span> <span class="fu">min</span>(i <span class="sc">*</span> chunk_size, <span class="fu">nrow</span>(large_df))</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>    </span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>    chunk <span class="ot">&lt;-</span> large_df[start_row<span class="sc">:</span>end_row, ]</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>    chunk_result <span class="ot">&lt;-</span> <span class="fu">bloom_join</span>(chunk, small_df, <span class="at">by =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>    results[[i]] <span class="ot">&lt;-</span> chunk_result</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  }</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>  </span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>  <span class="fu">do.call</span>(rbind, results)</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>}</span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co"># Example with chunked processing</span></span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Chunked processing can help with memory management for very large datasets</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; Chunked processing can help with memory management for very large datasets</span></span></code></pre></div>
+</div>
+<div id="limitations-and-considerations" class="section level2">
+<h2>Limitations and Considerations</h2>
+<ol style="list-style-type: decimal">
+<li><strong>Anti-joins</strong>: Cannot use Bloom filters for
+pre-filtering due to false positives</li>
+<li><strong>Left/right/full joins</strong>: Limited benefit as all rows
+from one table are kept</li>
+<li><strong>High selectivity</strong>: Performance advantage decreases
+with high match rates</li>
+<li><strong>Small datasets</strong>: Overhead may outweigh benefits for
+small data (&lt;1k rows)</li>
+</ol>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>The <code>bloomjoin</code> package is most effective for: - Large
+datasets (&gt;10k rows) - Low selectivity joins (&lt;25% match rate) -
+Inner, semi, or anti join operations - Memory-constrained
+environments</p>
+<p>Use the <code>verbose = TRUE</code> parameter to monitor filter
+effectiveness and tune parameters as needed for optimal performance with
+your specific datasets.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

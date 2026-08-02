@@ -70,6 +70,63 @@ inline uint32_t hash_int32_secondary(int32_t key, uint32_t seed) {
   return static_cast<uint32_t>(x) | 1;  // Ensure odd for double hashing
 }
 
+// Sizing for a target false positive rate, shared by the filter itself and by
+// the bloom_params() helper so the helper cannot describe a filter the package
+// does not build.
+//
+// Standard Bloom sizing (Broder & Mitzenmacher): p needs -ln(p)/ln(2)^2 bits
+// per key, and m bits holding n keys are best probed (m/n)*ln(2) times. This
+// is what Guava's optimalNumOfBits/optimalNumOfHashFunctions and Spark's
+// BloomFilter.create compute.
+inline void bloom_sizing(size_t expected_elements, double false_positive_rate,
+                         size_t* m_out, size_t* k_out) {
+  if (expected_elements == 0) expected_elements = 1;
+  if (false_positive_rate <= 0.0 || false_positive_rate >= 1.0) {
+    false_positive_rate = 0.01;
+  }
+
+  const double ln2 = 0.6931471805599453;
+  const double n = static_cast<double>(expected_elements);
+  const double m_raw = (-std::log(false_positive_rate) / (ln2 * ln2)) * n;
+
+  // Cap the array so an extreme rate cannot ask for more memory than exists,
+  // and so the shift below stays defined on a 32-bit size_t.
+  const int max_shift = (sizeof(size_t) * 8 > 40) ? 40 : (int)(sizeof(size_t) * 8 - 2);
+  const size_t max_bits = static_cast<size_t>(1) << max_shift;
+  const size_t max_k = 64;
+
+  // Round up to a power of two so the modulo stays a mask.
+  size_t m = 1;
+  while (static_cast<double>(m) < m_raw && m < max_bits) m <<= 1;
+
+  // k comes from the rounded m, which is up to 2x m_raw.
+  auto k_for = [&](size_t bits) {
+    double k_opt = (static_cast<double>(bits) / n) * ln2;
+    size_t kk = static_cast<size_t>(k_opt + 0.5);
+    if (kk < 1) kk = 1;
+    if (kk > max_k) kk = max_k;
+    return kk;
+  };
+  auto achieved = [&](size_t bits, size_t kk) {
+    return std::pow(1.0 - std::exp(-static_cast<double>(kk) * n / static_cast<double>(bits)),
+                    static_cast<double>(kk));
+  };
+
+  size_t k = k_for(m);
+
+  // The closed form assumes a real-valued k. Rounding it to an integer, and
+  // flooring it at 1, can leave the achieved rate ABOVE the request -- at
+  // p = 0.8 the optimum is k = 0.36, which floors to 1 and overshoots to 0.85.
+  // Buy the difference with bits until the request is met or memory runs out.
+  while (achieved(m, k) > false_positive_rate && m < max_bits) {
+    m <<= 1;
+    k = k_for(m);
+  }
+
+  *m_out = m;
+  *k_out = k;
+}
+
 class BloomFilter {
 private:
   BitArray bits;
