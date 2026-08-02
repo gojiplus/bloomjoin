@@ -40,3 +40,7 @@ Useful links:
 ## Author
 
 **Maintainer**: Gaurav Sood <gsood07@gmail.com>
+
+Authors:
+
+- Gaurav Sood <gsood07@gmail.com>

@@ -73,7 +73,7 @@ describing the pre-filter decision.
 x <- data.frame(id = 1:100000, value_x = rnorm(100000))
 y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
 bloom_join(x, y, by = "id", verbose = TRUE)
-#> Prefilter retained 10755 of 100000 rows from 'x'
+#> Prefilter retained 10148 of 100000 rows from 'x'
 #>          id       value_x       value_y
 #> 1     50001  1.431664e+00 -1.3366065033
 #> 2     50002  1.711280e-01  0.0899147415

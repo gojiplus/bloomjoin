@@ -57,7 +57,7 @@
                         <h4 data-toc-skip class="author">Gaurav
 Sood</h4>
             
-            <h4 data-toc-skip class="date">2026-08-01</h4>
+            <h4 data-toc-skip class="date">2026-08-02</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/gojiplus/bloomjoin/blob/main/vignettes/bloomjoin-guide.Rmd" class="external-link"><code>vignettes/bloomjoin-guide.Rmd</code></a></small>
       <div class="d-none name"><code>bloomjoin-guide.Rmd</code></div>
@@ -130,9 +130,9 @@ left table don’t match</li>
 <span>  <span class="va">bloom_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bloom_join.html">bloom_join</a></span><span class="op">(</span><span class="va">customers</span>, <span class="va">active_customers</span>, </span>
 <span>                           by <span class="op">=</span> <span class="st">"customer_id"</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Prefilter retained 548 of 10000 rows from 'x'</span></span>
+<span><span class="co">#&gt; Prefilter retained 501 of 10000 rows from 'x'</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   0.009   0.000   0.008</span></span>
+<span><span class="co">#&gt;   0.008   0.000   0.009</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>  <span class="va">std_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">inner_join</a></span><span class="op">(</span><span class="va">customers</span>, <span class="va">active_customers</span>, by <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span></span>
@@ -253,14 +253,14 @@ left table don’t match</li>
 <span></span>
 <span><span class="co"># Default parameters</span></span>
 <span><span class="va">result1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bloom_join.html">bloom_join</a></span><span class="op">(</span><span class="va">large_x</span>, <span class="va">small_y</span>, by <span class="op">=</span> <span class="st">"id"</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Prefilter retained 799 of 50000 rows from 'x'</span></span>
+<span><span class="co">#&gt; Prefilter retained 556 of 50000 rows from 'x'</span></span>
 <span></span>
 <span><span class="co"># Tuned parameters for better performance</span></span>
 <span><span class="va">result2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bloom_join.html">bloom_join</a></span><span class="op">(</span><span class="va">large_x</span>, <span class="va">small_y</span>, by <span class="op">=</span> <span class="st">"id"</span>, </span>
 <span>                     n_hint <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>y <span class="op">=</span> <span class="fl">2000</span><span class="op">)</span>,     <span class="co"># Hint for expected cardinality</span></span>
 <span>                     fpr <span class="op">=</span> <span class="fl">0.001</span>, <span class="co"># Lower FPR</span></span>
 <span>                     verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Prefilter retained 675 of 50000 rows from 'x'</span></span>
+<span><span class="co">#&gt; Prefilter retained 556 of 50000 rows from 'x'</span></span>
 <span></span>
 <span><span class="co"># Compare filter effectiveness</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Default filter effectiveness:\n"</span><span class="op">)</span></span>
@@ -352,15 +352,15 @@ left table don’t match</li>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  Good: Medium datasets, moderate selectivity </span></span>
 <span><span class="co">#&gt; =========================================== </span></span>
-<span><span class="co">#&gt; Bloom join time: 3 ms</span></span>
+<span><span class="co">#&gt; Bloom join time: 4 ms</span></span>
 <span><span class="co">#&gt; Standard join time: 2 ms</span></span>
-<span><span class="co">#&gt; Speedup: 0.67 x</span></span>
+<span><span class="co">#&gt; Speedup: 0.5 x</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  Poor: Small datasets, high selectivity </span></span>
 <span><span class="co">#&gt; ====================================== </span></span>
 <span><span class="co">#&gt; Bloom join time: 2 ms</span></span>
-<span><span class="co">#&gt; Standard join time: 2 ms</span></span>
-<span><span class="co">#&gt; Speedup: 1 x</span></span></code></pre></div>
+<span><span class="co">#&gt; Standard join time: 1 ms</span></span>
+<span><span class="co">#&gt; Speedup: 0.5 x</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

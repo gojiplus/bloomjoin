@@ -60,9 +60,9 @@ system.time({
   bloom_result <- bloom_join(customers, active_customers, 
                            by = "customer_id", verbose = TRUE)
 })
-#> Prefilter retained 548 of 10000 rows from 'x'
+#> Prefilter retained 501 of 10000 rows from 'x'
 #>    user  system elapsed 
-#>   0.009   0.000   0.008
+#>   0.008   0.000   0.009
 
 system.time({
   std_result <- inner_join(customers, active_customers, by = "customer_id")
@@ -185,14 +185,14 @@ small_y <- tibble(
 
 # Default parameters
 result1 <- bloom_join(large_x, small_y, by = "id", verbose = TRUE)
-#> Prefilter retained 799 of 50000 rows from 'x'
+#> Prefilter retained 556 of 50000 rows from 'x'
 
 # Tuned parameters for better performance
 result2 <- bloom_join(large_x, small_y, by = "id", 
                      n_hint = list(y = 2000),     # Hint for expected cardinality
                      fpr = 0.001, # Lower FPR
                      verbose = TRUE)
-#> Prefilter retained 675 of 50000 rows from 'x'
+#> Prefilter retained 556 of 50000 rows from 'x'
 
 # Compare filter effectiveness
 cat("Default filter effectiveness:\n")
@@ -285,15 +285,15 @@ for (scenario in scenarios) {
 #> 
 #>  Good: Medium datasets, moderate selectivity 
 #> =========================================== 
-#> Bloom join time: 3 ms
+#> Bloom join time: 4 ms
 #> Standard join time: 2 ms
-#> Speedup: 0.67 x
+#> Speedup: 0.5 x
 #> 
 #>  Poor: Small datasets, high selectivity 
 #> ====================================== 
 #> Bloom join time: 2 ms
-#> Standard join time: 2 ms
-#> Speedup: 1 x
+#> Standard join time: 1 ms
+#> Speedup: 0.5 x
 ```
 
 ## Best Practices
