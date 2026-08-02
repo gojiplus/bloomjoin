@@ -54,14 +54,21 @@ static inline std::pair<uint64_t, bool> double_bits_canonical(double d) {
   return std::make_pair(bits, false);
 }
 
-// Type tags (mixed in to keep types distinct even when payloads collide)
-static constexpr uint64_t TAG_INT    = 0x9ae16a3b2f90404fULL;
-static constexpr uint64_t TAG_DBL    = 0xc949d7c7509e6557ULL;
+// Type tags.
+//
+// These must follow the *join* notion of equality, not R's storage types. A
+// Bloom filter is built from one side's keys and probed with the other's, so
+// two keys that dplyr would match MUST hash identically -- otherwise the probe
+// misses and the row is dropped, which is a false negative. Bloom filters are
+// allowed false positives; false negatives break the entire guarantee.
+//
+// So every numeric-ish storage type shares TAG_NUM and is canonicalised to
+// double bits (integer 1L and double 1.0 are equal to dplyr and must hash the
+// same), and factors share TAG_CHR with character because factors hash their
+// level strings. Distinct tags remain only where dplyr itself refuses to join.
+static constexpr uint64_t TAG_NUM    = 0x9ae16a3b2f90404fULL;
 static constexpr uint64_t TAG_CHR    = 0x8a5cd789635d2dffULL;
 static constexpr uint64_t TAG_LGL    = 0x85ebca6b27d4eb4fULL;
-static constexpr uint64_t TAG_FCT    = 0x4cf5ad432745937fULL;
-static constexpr uint64_t TAG_DATE   = 0x94d049bb133111ebULL;
-static constexpr uint64_t TAG_POSIX  = 0xbf58476d1ce4e5b9ULL;
 
 // Combine one component hash into an accumulator.
 static inline uint64_t mix_in(uint64_t acc, uint64_t h) {
@@ -110,11 +117,11 @@ IntegerVector hash_keys32_cols(List cols,
       for (R_xlen_t li = 0; li < n_levels; ++li) {
         SEXP s = STRING_ELT(lv, li);
         if (s == NA_STRING) {
-          level_hashes[li] = mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
+          level_hashes[li] = mix_in(TAG_CHR, 0xD1B54A32D192ED03ULL);
         } else {
           const char* bytes = normalize_strings ? Rf_translateCharUTF8(s) : Rf_translateChar(s);
           uint64_t hv = fnv1a64(reinterpret_cast<const unsigned char*>(bytes), std::strlen(bytes));
-          level_hashes[li] = mix_in(TAG_FCT, splitmix64(hv));
+          level_hashes[li] = mix_in(TAG_CHR, splitmix64(hv));
         }
       }
 
@@ -123,7 +130,7 @@ IntegerVector hash_keys32_cols(List cols,
         int code = codes[i];
         uint64_t hv;
         if (code == NA_INTEGER) {
-          hv = mix_in(TAG_FCT, 0xD1B54A32D192ED03ULL);
+          hv = mix_in(TAG_CHR, 0xD1B54A32D192ED03ULL);
         } else {
           hv = level_hashes[code - 1];
         }
@@ -146,9 +153,9 @@ IntegerVector hash_keys32_cols(List cols,
           int v = data[i + j];
           uint64_t hv;
           if (v == NA_INTEGER) {
-            hv = mix_in(TAG_INT, 0xD1B54A32D192ED03ULL);
+            hv = mix_in(TAG_NUM, splitmix64(0xD1B54A32D192ED03ULL));
           } else {
-            hv = mix_in(TAG_INT, splitmix64(static_cast<uint64_t>(static_cast<uint32_t>(v))));
+            hv = mix_in(TAG_NUM, splitmix64(double_bits_canonical(static_cast<double>(v)).first));
           }
           hashes[i + j] = mix_in(hashes[i + j], hv);
         }
@@ -158,9 +165,9 @@ IntegerVector hash_keys32_cols(List cols,
         int v = data[i];
         uint64_t hv;
         if (v == NA_INTEGER) {
-          hv = mix_in(TAG_INT, 0xD1B54A32D192ED03ULL);
+          hv = mix_in(TAG_NUM, splitmix64(0xD1B54A32D192ED03ULL));
         } else {
-          hv = mix_in(TAG_INT, splitmix64(static_cast<uint64_t>(static_cast<uint32_t>(v))));
+          hv = mix_in(TAG_NUM, splitmix64(double_bits_canonical(static_cast<double>(v)).first));
         }
         hashes[i] = mix_in(hashes[i], hv);
       }
@@ -181,9 +188,9 @@ IntegerVector hash_keys32_cols(List cols,
     }
     case REALSXP: {
       const double* data = REAL(col);
-      bool is_date = Rf_inherits(col, "Date");
-      bool is_posix = Rf_inherits(col, "POSIXct");
-      uint64_t tag = is_date ? TAG_DATE : (is_posix ? TAG_POSIX : TAG_DBL);
+      // Date and POSIXct are doubles underneath and dplyr joins them to plain
+      // numerics, so they must not carry a distinct tag.
+      const uint64_t tag = TAG_NUM;
 
       R_xlen_t i = 0;
       // Process 4 at a time with prefetch
