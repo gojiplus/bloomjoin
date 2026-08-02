@@ -13,25 +13,31 @@ BloomFilter::BloomFilter(size_t expected_elements, double false_positive_rate)
     false_positive_rate = 0.01;
   }
 
-  // Optimized filter size calculation
-  if (false_positive_rate >= 0.1) {
-    m = expected_elements * 5;
-    k = 2;
-  } else if (false_positive_rate >= 0.01) {
-    m = expected_elements * 10;
-    k = 3;
-  } else {
-    m = expected_elements * 15;
-    k = 4;
-  }
+  // Standard Bloom sizing (Broder & Mitzenmacher): a target rate p needs
+  // -ln(p)/ln(2)^2 bits per key, and a filter of m bits holding n keys is
+  // best probed k = (m/n)*ln(2) times.
+  //
+  // This used to be a three-way switch on false_positive_rate, so every rate
+  // in [0.01, 0.1) built the same filter and a request for 1e-9 delivered
+  // about 9e-4. R/params.R has always exported these formulas under
+  // bloom_params(); the filter just did not use them.
+  const double ln2 = 0.6931471805599453;
+  const double bits_per_key = -std::log(false_positive_rate) / (ln2 * ln2);
+  const double m_raw = bits_per_key * static_cast<double>(expected_elements);
 
-  // Ensure power of 2 for fast modulo (using bit masking)
+  // Round up to a power of two so the modulo stays a mask. Cap the array at
+  // 2^40 bits (128 GiB) so an extreme rate cannot overflow the shift.
+  const size_t max_bits = static_cast<size_t>(1) << 40;
   size_t power = 1;
-  while (power < m) power <<= 1;
+  while (static_cast<double>(power) < m_raw && power < max_bits) power <<= 1;
   m = power;
 
-  // Limit hash functions for speed
-  k = std::max<size_t>(1, std::min<size_t>(k, 4));
+  // k from the rounded m, not from m_raw: rounding up to a power of two adds
+  // up to 2x the bits, and spending them on probes is what keeps the achieved
+  // rate at or under the requested one.
+  const double k_opt = (static_cast<double>(m) / static_cast<double>(expected_elements)) * ln2;
+  k = static_cast<size_t>(k_opt + 0.5);
+  k = std::max<size_t>(1, std::min<size_t>(k, 30));
 
   // Initialize the bit array
   bits.resize(m);
