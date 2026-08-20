@@ -31,3 +31,7 @@ build/
 dist/
 docs/ 
 *.tar.gz
+
+# pkgdown output. Disposable local build product; CI builds and
+# publishes the definitive site.
+/docs/
