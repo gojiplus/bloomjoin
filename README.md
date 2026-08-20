@@ -1,8 +1,7 @@
 ## bloomjoin
 
-[![CI](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yaml)
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/bloomjoin)](https://cran.r-project.org/package=bloomjoin)
-![](http://cranlogs.r-pkg.org/badges/grand-total/bloomjoin)
+[![R-CMD-check](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/gojiplus/bloomjoin/actions/workflows/R-CMD-check.yml)
+[![lint](https://github.com/gojiplus/bloomjoin/actions/workflows/lint.yml/badge.svg)](https://github.com/gojiplus/bloomjoin/actions/workflows/lint.yml)
 
 Faster, memory-efficient joins when joining a large table to a small lookup table.
 
