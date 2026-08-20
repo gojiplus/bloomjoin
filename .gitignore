@@ -1,0 +1,33 @@
+.Rproj.user
+.DS_Store
+/.eggs
+.Rbuildignore
+.Rhistory
+/build
+vignettes/.build.timestamp
+var/
+/Meta/
+/doc/
+*.Rcheck/
+
+# Build artifacts
+*.so
+*.o
+*.dll
+*.rds
+src/*.so
+src/*.o
+
+# System files
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+
+# Development files
+build/
+dist/
+docs/ 
+*.tar.gz
