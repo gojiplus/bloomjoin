@@ -45,8 +45,10 @@ test_that("the target is met at loose and tight rates, not just typical ones", {
   # floored to 1 and achieved 0.85. The sizing now buys bits until the request
   # is met.
   sizing <- getFromNamespace("rcpp_bloom_sizing", "bloomjoin")
-  for (case in list(c(1e6, 0.8), c(1e6, 0.5), c(1e6, 0.2), c(10, 1e-20),
-                    c(1e5, 1e-4), c(1e6, 1e-6))) {
+  for (case in list(
+    c(1e6, 0.8), c(1e6, 0.5), c(1e6, 0.2), c(10, 1e-20),
+    c(1e5, 1e-4), c(1e6, 1e-6)
+  )) {
     n <- case[1]
     p <- case[2]
     z <- sizing(n, p)

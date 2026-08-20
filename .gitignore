@@ -8,7 +8,7 @@ vignettes/.build.timestamp
 var/
 /Meta/
 /doc/
-/..Rcheck
+*.Rcheck/
 
 # Build artifacts
 *.so
@@ -30,3 +30,4 @@ Thumbs.db
 build/
 dist/
 docs/ 
+*.tar.gz

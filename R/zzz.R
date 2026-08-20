@@ -9,7 +9,7 @@
   }
 }
 
-compare_proxy.bloomjoin <- function(x, path, ...) {
+compare_proxy.bloomjoin <- function(x, path, ...) { # nolint: object_name_linter.
   x <- strip_bloomjoin_attributes(x)
   NextMethod()
 }

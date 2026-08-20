@@ -113,8 +113,9 @@ results <- do.call(rbind, lapply(scenarios, function(s) {
 }))
 
 kable(results,
-      col.names = c("n_x", "n_y", "overlap", "speed", "memory", "reduction"),
-      align = "rrrrrr")
+  col.names = c("n_x", "n_y", "overlap", "speed", "memory", "reduction"),
+  align = "rrrrrr"
+)
 ```
 
 ## Interpretation

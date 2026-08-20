@@ -82,7 +82,11 @@ print.bloom_params <- function(x, ...) {
   cat("  n (expected keys): ", fmt_num(x$n), "\n", sep = "")
   cat("  target FPR:        ", signif(x$p_target, 3), "\n", sep = "")
   cat("  total bits (m):    ", fmt_num(x$m_bits), "\n", sep = "")
-  cat("  total bytes:       ", fmt_num(x$bytes), " (", signif(x$bytes / 1024^2, 3), " MiB)\n", sep = "")
+  cat(
+    "  total bytes:       ", fmt_num(x$bytes),
+    " (", signif(x$bytes / 1024^2, 3), " MiB)\n",
+    sep = ""
+  )
   cat("  bits per key:      ", signif(x$bits_per_key, 4), "\n", sep = "")
   cat("  hashes (k):        ", x$k, "\n", sep = "")
   cat("  achieved FPR:      ", signif(x$fpr_est, 4), "\n", sep = "")

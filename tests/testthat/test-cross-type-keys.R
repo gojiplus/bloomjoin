@@ -9,8 +9,10 @@
 ## it because every type test used the same type on both frames.
 
 cross_type_frames <- function(kx, ky, n = 3000) {
-  list(x = data.frame(id = kx, vx = seq_len(n)),
-       y = data.frame(id = ky, vy = seq_len(n) * 10))
+  list(
+    x = data.frame(id = kx, vx = seq_len(n)),
+    y = data.frame(id = ky, vy = seq_len(n) * 10)
+  )
 }
 
 test_that("keys that dplyr considers equal are joined regardless of storage type", {
@@ -18,12 +20,14 @@ test_that("keys that dplyr considers equal are joined regardless of storage type
   # otherwise the Bloom prefilter is bypassed and the bug cannot appear.
   n <- 3000
   cases <- list(
-    "integer vs double"   = list(seq_len(n), as.numeric(seq_len(n))),
-    "double vs integer"   = list(as.numeric(seq_len(n)), seq_len(n)),
+    "integer vs double" = list(seq_len(n), as.numeric(seq_len(n))),
+    "double vs integer" = list(as.numeric(seq_len(n)), seq_len(n)),
     "factor vs character" = list(factor(paste0("k", seq_len(n))), paste0("k", seq_len(n))),
     "character vs factor" = list(paste0("k", seq_len(n)), factor(paste0("k", seq_len(n)))),
-    "Date double vs int"  = list(as.Date(seq_len(n), origin = "1970-01-01"),
-                                 structure(as.integer(seq_len(n)), class = "Date"))
+    "Date double vs int" = list(
+      as.Date(seq_len(n), origin = "1970-01-01"),
+      structure(as.integer(seq_len(n)), class = "Date")
+    )
   )
 
   for (nm in names(cases)) {
@@ -32,13 +36,16 @@ test_that("keys that dplyr considers equal are joined regardless of storage type
       got <- suppressMessages(bloom_join(fr$x, fr$y, by = "id", type = ty))
       ref <- suppressMessages(
         switch(ty,
-               inner = dplyr::inner_join(fr$x, fr$y, by = "id"),
-               left  = dplyr::left_join(fr$x, fr$y, by = "id"),
-               semi  = dplyr::semi_join(fr$x, fr$y, by = "id"),
-               anti  = dplyr::anti_join(fr$x, fr$y, by = "id")))
+          inner = dplyr::inner_join(fr$x, fr$y, by = "id"),
+          left  = dplyr::left_join(fr$x, fr$y, by = "id"),
+          semi  = dplyr::semi_join(fr$x, fr$y, by = "id"),
+          anti  = dplyr::anti_join(fr$x, fr$y, by = "id")
+        )
+      )
       expect_equal(as.data.frame(got), as.data.frame(ref),
-                   ignore_attr = TRUE,
-                   info = paste(nm, ty))
+        ignore_attr = TRUE,
+        info = paste(nm, ty)
+      )
     }
   }
 })

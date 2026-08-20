@@ -1,5 +1,5 @@
 # Benchmarks for bloomjoin vs dplyr: speed and memory
-# Run: source("inst/bench/bench-bloomjoin.R")
+# Run this file with source() from the package root.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -7,11 +7,14 @@ suppressPackageStartupMessages({
 })
 
 make_join_data <- function(n_x, n_y, overlap, seed = 123) {
-
   set.seed(seed)
   y_keys <- seq_len(n_y)
   n_match <- round(n_x * overlap)
-  x_matching <- if (n_match > 0) sample(y_keys, min(n_match, n_y), replace = n_match > n_y) else integer(0)
+  x_matching <- if (n_match > 0) {
+    sample(y_keys, min(n_match, n_y), replace = n_match > n_y)
+  } else {
+    integer(0)
+  }
   x_nonmatching <- seq(n_y + 1, n_y + n_x - length(x_matching))
 
   list(

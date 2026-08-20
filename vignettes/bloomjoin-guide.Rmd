@@ -53,14 +53,15 @@ customers <- tibble(
 
 # Small lookup table
 active_customers <- tibble(
-  customer_id = sample(1:10000, 500),  # Only 5% of customers are active
+  customer_id = sample(1:10000, 500), # Only 5% of customers are active
   last_login = as.Date("2024-01-01") + sample(0:365, 500, replace = TRUE)
 )
 
 # Compare bloom join with standard join
 system.time({
-  bloom_result <- bloom_join(customers, active_customers, 
-                           by = "customer_id", verbose = TRUE)
+  bloom_result <- bloom_join(customers, active_customers,
+    by = "customer_id", verbose = TRUE
+  )
 })
 
 system.time({
@@ -86,12 +87,12 @@ cat("y has IDs:", paste(y$id, collapse = ", "), "\n\n")
 inner_result <- bloom_join(x, y, by = "id", type = "inner")
 cat("Inner join:", nrow(inner_result), "rows\n")
 
-# Left join - all records from x, matching from y  
+# Left join - all records from x, matching from y
 left_result <- bloom_join(x, y, by = "id", type = "left")
 cat("Left join:", nrow(left_result), "rows\n")
 
 # Semi join - records in x that have matches in y
-semi_result <- bloom_join(x, y, by = "id", type = "semi") 
+semi_result <- bloom_join(x, y, by = "id", type = "semi")
 cat("Semi join:", nrow(semi_result), "rows\n")
 
 # Anti join - records in x that DON'T have matches in y
@@ -119,9 +120,10 @@ inventory <- tibble(
 )
 
 # Multi-column bloom join
-result <- bloom_join(orders, inventory, 
-                    by = c("customer_id", "product_id"), 
-                    verbose = TRUE)
+result <- bloom_join(orders, inventory,
+  by = c("customer_id", "product_id"),
+  verbose = TRUE
+)
 cat("Multi-column join result:", nrow(result), "rows\n")
 ```
 
@@ -135,13 +137,14 @@ sales <- tibble(
 )
 
 profiles <- tibble(
-  customer_id = sample(1:100, 60),  # Only 60% coverage
+  customer_id = sample(1:100, 60), # Only 60% coverage
   tier = sample(c("Gold", "Silver", "Bronze"), 60, replace = TRUE)
 )
 
 # Join with different column names
-result <- bloom_join(sales, profiles, 
-                    by = c("cust_id" = "customer_id"))
+result <- bloom_join(sales, profiles,
+  by = c("cust_id" = "customer_id")
+)
 cat("Named column join:", nrow(result), "rows\n")
 ```
 
@@ -164,10 +167,12 @@ small_y <- tibble(
 result1 <- bloom_join(large_x, small_y, by = "id", verbose = TRUE)
 
 # Tuned parameters for better performance
-result2 <- bloom_join(large_x, small_y, by = "id", 
-                     n_hint = list(y = 2000),     # Hint for expected cardinality
-                     fpr = 0.001, # Lower FPR
-                     verbose = TRUE)
+result2 <- bloom_join(large_x, small_y,
+  by = "id",
+  n_hint = list(y = 2000), # Hint for expected cardinality
+  fpr = 0.001, # Lower FPR
+  verbose = TRUE
+)
 
 # Compare filter effectiveness
 cat("Default filter effectiveness:\n")
@@ -180,7 +185,7 @@ The package provides helpful error messages and suggestions:
 
 ```{r error-handling, error=TRUE}
 # Type in wrong join type
-try(bloom_join(x, y, by = "id", type = "inne"))  # Typo in "inner"
+try(bloom_join(x, y, by = "id", type = "inne")) # Typo in "inner"
 
 # Missing join columns
 try(bloom_join(x, y, by = "nonexistent_col"))
@@ -200,43 +205,53 @@ create_test_scenario <- function(n_left, n_right, selectivity) {
     id = 1:n_left,
     data = rnorm(n_left)
   )
-  
-  # Right table with controlled selectivity
-  n_matches <- round(n_left * selectivity)
+
+  # Right table with controlled selectivity: `selectivity` is the share of
+  # right-hand rows that match. The rest are ids the left table does not
+  # contain, which is what a Bloom filter is meant to reject cheaply.
+  n_matches <- round(n_right * selectivity)
+  matching <- sample(seq_len(n_left), n_matches, replace = FALSE)
+  non_matching <- seq(n_left + 1, length.out = n_right - n_matches)
   right_df <- tibble(
-    id = sample(1:n_left, n_right, replace = FALSE),
+    id = sample(c(matching, non_matching)),
     lookup = rnorm(n_right)
   )
-  
+
   list(left = left_df, right = right_df)
 }
 
 # Test scenarios
 scenarios <- list(
-  list(name = "Optimal: Large left, small right, low selectivity", 
-       n_left = 50000, n_right = 1000, selectivity = 0.02),
-  list(name = "Good: Medium datasets, moderate selectivity",
-       n_left = 10000, n_right = 2000, selectivity = 0.10),
-  list(name = "Poor: Small datasets, high selectivity", 
-       n_left = 1000, n_right = 800, selectivity = 0.80)
+  list(
+    name = "Optimal: Large left, small right, low selectivity",
+    n_left = 50000, n_right = 1000, selectivity = 0.02
+  ),
+  list(
+    name = "Good: Medium datasets, moderate selectivity",
+    n_left = 10000, n_right = 2000, selectivity = 0.10
+  ),
+  list(
+    name = "Poor: Small datasets, high selectivity",
+    n_left = 1000, n_right = 800, selectivity = 0.80
+  )
 )
 
 for (scenario in scenarios) {
   cat("\n", scenario$name, "\n")
   cat(paste(rep("=", nchar(scenario$name)), collapse = ""), "\n")
-  
+
   test_data <- create_test_scenario(scenario$n_left, scenario$n_right, scenario$selectivity)
-  
+
   # Time bloom join
   bloom_time <- system.time({
     bloom_result <- bloom_join(test_data$left, test_data$right, by = "id")
   })["elapsed"]
-  
-  # Time standard join  
+
+  # Time standard join
   std_time <- system.time({
     std_result <- inner_join(test_data$left, test_data$right, by = "id")
   })["elapsed"]
-  
+
   cat("Bloom join time:", round(bloom_time * 1000, 2), "ms\n")
   cat("Standard join time:", round(std_time * 1000, 2), "ms\n")
   cat("Speedup:", round(std_time / bloom_time, 2), "x\n")
@@ -258,16 +273,16 @@ for (scenario in scenarios) {
 process_large_join <- function(large_df, small_df, chunk_size = 10000) {
   results <- list()
   n_chunks <- ceiling(nrow(large_df) / chunk_size)
-  
+
   for (i in 1:n_chunks) {
     start_row <- (i - 1) * chunk_size + 1
     end_row <- min(i * chunk_size, nrow(large_df))
-    
+
     chunk <- large_df[start_row:end_row, ]
     chunk_result <- bloom_join(chunk, small_df, by = "id")
     results[[i]] <- chunk_result
   }
-  
+
   do.call(rbind, results)
 }
 

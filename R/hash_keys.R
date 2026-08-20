@@ -60,4 +60,3 @@ hash_keys32 <- function(x, by, normalize_strings = TRUE) {
   # Call the C++ core on the list of columns (keeps order)
   hash_keys32_cols(cols, normalize_strings = isTRUE(normalize_strings))
 }
-

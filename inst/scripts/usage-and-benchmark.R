@@ -27,8 +27,10 @@ generate_data <- function(n_left, n_right, overlap_pct = 0.1, seed = 42) {
 }
 
 validate_correctness <- function(data) {
+  # nolint start: object_usage_linter. dplyr masks `id` from the data.
   bloom <- bloom_join(data$left, data$right, by = "id") |> arrange(id)
   reference <- inner_join(data$left, data$right, by = "id") |> arrange(id)
+  # nolint end
 
   bloom_cmp <- as.data.frame(bloom)
   attr(bloom_cmp, "bloom_metadata") <- NULL

@@ -60,15 +60,15 @@
 #' y <- data.frame(id = 50001:60000, value_y = rnorm(10000))
 #' bloom_join(x, y, by = "id", verbose = TRUE)
 bloom_join <- function(
-    x,
-    y,
-    by = NULL,
-    type = c("inner", "left", "right", "full", "semi", "anti"),
-    engine = c("auto", "bloom", "fuse"),
-    prefilter_side = c("auto", "x", "y"),
-    fpr = 0.01,
-    n_hint = NULL,
-    verbose = FALSE
+  x,
+  y,
+  by = NULL,
+  type = c("inner", "left", "right", "full", "semi", "anti"),
+  engine = c("auto", "bloom", "fuse"),
+  prefilter_side = c("auto", "x", "y"),
+  fpr = 0.01,
+  n_hint = NULL,
+  verbose = FALSE
 ) {
   valid_types <- c("inner", "left", "right", "full", "semi", "anti")
   type_input <- type[1]
@@ -237,7 +237,9 @@ estimate_distinct_count <- function(keys, hint = NA_real_, sample_limit = 50000L
   max(0L, as.integer(estimate))
 }
 
-estimate_selectivity <- function(probe_keys, build_keys, probe_limit = 5000L, build_limit = 50000L) {
+estimate_selectivity <- function(probe_keys, build_keys,
+                                 probe_limit = 5000L,
+                                 build_limit = 50000L) {
   if (!length(probe_keys) || !length(build_keys)) {
     return(0)
   }
@@ -433,7 +435,7 @@ execute_join_plan <- function(plan, x, y, by_spec, type, keys_x, keys_y, fpr, ve
   list(result = result, metadata = metadata)
 }
 
-`%||%` <- function(x, y) {
+`%||%` <- function(x, y) { # nolint: object_name_linter.
   if (is.null(x)) y else x
 }
 
@@ -461,8 +463,7 @@ perform_standard_join <- function(x, y, by = NULL, type = "inner") {
     args$relationship <- "many-to-many"
   }
 
-  switch(
-    type,
+  switch(type,
     inner = do.call(dplyr::inner_join, args),
     left = do.call(dplyr::left_join, args),
     right = do.call(dplyr::right_join, args),

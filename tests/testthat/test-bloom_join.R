@@ -1,5 +1,4 @@
 # Simplified test file for BloomJoin package
-# tests/testthat/test-bloom_join.R
 
 library(testthat)
 library(dplyr)
@@ -62,8 +61,10 @@ test_that("bloom_join works with multiple join columns", {
   result_std <- inner_join(x, y, by = c("id1", "id2"))
 
   expect_equal(nrow(result_bloom), nrow(result_std))
-  expect_equal(sort(paste(result_bloom$id1, result_bloom$id2)),
-               sort(paste(result_std$id1, result_std$id2)))
+  expect_equal(
+    sort(paste(result_bloom$id1, result_bloom$id2)),
+    sort(paste(result_std$id1, result_std$id2))
+  )
 })
 
 # Test with no overlap between datasets
